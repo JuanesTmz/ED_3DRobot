@@ -74,7 +74,7 @@
 
 <header>
   <h1>ED <span>3D Robot</span></h1>
-  <div class="sub">low-poly &middot; 2 824 tris &middot; 17 huesos</div>
+  <div class="sub">low-poly &middot; three.js</div>
 </header>
 
 <div id="panel">
@@ -107,7 +107,6 @@ const errBox = document.getElementById('err');
 const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
 window.addEventListener('error', e => fail(e.message));
 
-// ------------------------------------------------------------- escena ----
 const app = document.getElementById('app');
 const scene = new THREE.Scene();
 
@@ -120,8 +119,6 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-// Los materiales son colores planos de ilustracion: cualquier tone mapping
-// agresivo los lava. Neutral conserva la saturacion del concept.
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -138,13 +135,9 @@ controls.maxPolarAngle = Math.PI * 0.52;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.9;
 
-// --------------------------------------------------------------- luces ----
-// Replica el esquema de 3 puntos del render de Blender.
 scene.add(new THREE.HemisphereLight(0xd8e4f5, 0x9aa6b8, 1.35));
 
 const key = new THREE.DirectionalLight(0xffffff, 2.1);
-// Bastante cenital: si la luz baja demasiado, la sombra se alarga y se
-// despega del personaje en lugar de anclarlo al suelo.
 key.position.set(1.8, 6.2, 2.2);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
@@ -162,7 +155,6 @@ const rim = new THREE.DirectionalLight(0xffffff, 0.45);
 rim.position.set(0, 2.4, -4.0);
 scene.add(rim);
 
-// --------------------------------------------------------------- suelo ----
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(3.4, 64).rotateX(-Math.PI / 2),
   new THREE.ShadowMaterial({ opacity: 0.20 })
@@ -170,7 +162,6 @@ const ground = new THREE.Mesh(
 ground.receiveShadow = true;
 scene.add(ground);
 
-// ------------------------------------------------------------- modelo ----
 let mixer = null, action = null, skeletonHelper = null;
 const clock = new THREE.Clock();
 
@@ -186,13 +177,11 @@ new GLTFLoader().load(
       if (!o.isMesh) return;
       o.castShadow = true;
       o.receiveShadow = true;
-      // Sin frustum culling: la malla skinned se deforma fuera de su
-      // bounding box original y three.js la haria desaparecer al orbitar.
+      // la malla skinned se sale de su bounding box al animarse
       o.frustumCulled = false;
 
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
-        // El contorno es una cascara invertida: solo debe verse la silueta.
         if (m.name === 'M_outline') {
           m.side = THREE.FrontSide;
           m.polygonOffset = true;
@@ -227,7 +216,6 @@ new GLTFLoader().load(
   }
 );
 
-// ------------------------------------------------------------ controles ---
 const toggle = (btn, fn) => btn.addEventListener('click', () => {
   const on = btn.getAttribute('aria-pressed') !== 'true';
   btn.setAttribute('aria-pressed', on);
@@ -254,7 +242,6 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// ------------------------------------------------------------------ loop --
 renderer.setAnimationLoop(() => {
   if (mixer) mixer.update(clock.getDelta());
   controls.update();
