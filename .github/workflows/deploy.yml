@@ -22,7 +22,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # enablement: activa Pages en el repo desde el propio workflow,
+      # sin tener que tocar Settings a mano.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       # El sitio es la carpeta web/: index.html, el .glb y three.js vendorizado.
       - uses: actions/upload-pages-artifact@v3
         with:
