@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ED 3D Robot</title>
+<style>
+  :root{
+    --magenta:#e7448c; --lime:#96c42e; --yellow:#f6bf1c;
+    --teal:#5a98bd;    --navy:#27344a;  --paper:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%,#fdfdff 0%,var(--paper) 55%,#dfe5ee 100%);
+    color:var(--navy);overflow:hidden;
+  }
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  header{
+    position:fixed;top:0;left:0;right:0;padding:22px 26px;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    pointer-events:none;z-index:5;
+  }
+  h1{
+    margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;
+  }
+  h1 span{color:var(--magenta)}
+  .sub{font-size:13px;opacity:.55}
+
+  #panel{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    display:flex;gap:8px;padding:7px;border-radius:999px;z-index:5;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  button{
+    font:inherit;font-size:13px;font-weight:600;color:var(--navy);
+    padding:8px 16px;border:0;border-radius:999px;background:transparent;
+    cursor:pointer;transition:background .15s,color .15s;
+  }
+  button:hover{background:rgba(39,52,74,.07)}
+  button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+
+  #hint{
+    position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
+  }
+  #loader{
+    position:fixed;inset:0;display:grid;place-content:center;gap:14px;
+    justify-items:center;z-index:10;background:var(--paper);
+    transition:opacity .5s;font-size:13px;
+  }
+  #loader.done{opacity:0;pointer-events:none}
+  .bar{width:160px;height:4px;border-radius:2px;background:rgba(39,52,74,.12);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--magenta);transition:width .2s}
+  #err{
+    position:fixed;inset:auto 20px 20px 20px;padding:14px 16px;border-radius:10px;
+    background:#3b1220;color:#ffd9e4;font:12px/1.5 ui-monospace,monospace;
+    white-space:pre-wrap;display:none;z-index:20;
+  }
+
+  @media (max-width:560px){
+    #hint{display:none}
+    header{padding:16px 18px}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<header>
+  <h1>ED <span>3D Robot</span></h1>
+  <div class="sub">low-poly &middot; 2 824 tris &middot; 17 huesos</div>
+</header>
+
+<div id="panel">
+  <button id="btn-play"  aria-pressed="true">Pausa</button>
+  <button id="btn-spin"  aria-pressed="true">Giro</button>
+  <button id="btn-bones" aria-pressed="false">Huesos</button>
+  <button id="btn-reset" aria-pressed="false">Reencuadrar</button>
+</div>
+
+<div id="hint">arrastra para orbitar &middot; rueda para zoom</div>
+
+<div id="loader"><div class="bar"><i></i></div><div id="loader-txt">cargando modelo…</div></div>
+<pre id="err"></pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const errBox = document.getElementById('err');
+const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
+window.addEventListener('error', e => fail(e.message));
+
+// ------------------------------------------------------------- escena ----
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+const HOME = new THREE.Vector3(2.4, 1.9, 3.6);
+const TARGET = new THREE.Vector3(0, 0.95, 0);
+camera.position.copy(HOME);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+// Los materiales son colores planos de ilustracion: cualquier tone mapping
+// agresivo los lava. Neutral conserva la saturacion del concept.
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 1.6;
+controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.9;
+
+// --------------------------------------------------------------- luces ----
+// Replica el esquema de 3 puntos del render de Blender.
+scene.add(new THREE.HemisphereLight(0xd8e4f5, 0x9aa6b8, 1.35));
+
+const key = new THREE.DirectionalLight(0xffffff, 2.1);
+// Bastante cenital: si la luz baja demasiado, la sombra se alarga y se
+// despega del personaje en lugar de anclarlo al suelo.
+key.position.set(1.8, 6.2, 2.2);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.radius = 3;
+key.shadow.bias = -0.0012;
+const s = key.shadow.camera;
+s.left = -1.8; s.right = 1.8; s.top = 2.6; s.bottom = -1.8; s.near = 0.5; s.far = 14;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.55);
+fill.position.set(-3.5, 1.6, 2.2);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.45);
+rim.position.set(0, 2.4, -4.0);
+scene.add(rim);
+
+// --------------------------------------------------------------- suelo ----
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(3.4, 64).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.20 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ------------------------------------------------------------- modelo ----
+let mixer = null, action = null, skeletonHelper = null;
+const clock = new THREE.Clock();
+
+const loaderEl = document.getElementById('loader');
+const barEl = document.querySelector('.bar i');
+
+new GLTFLoader().load(
+  'robot_rigged.glb',
+  (gltf) => {
+    const model = gltf.scene;
+
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true;
+      o.receiveShadow = true;
+      // Sin frustum culling: la malla skinned se deforma fuera de su
+      // bounding box original y three.js la haria desaparecer al orbitar.
+      o.frustumCulled = false;
+
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        // El contorno es una cascara invertida: solo debe verse la silueta.
+        if (m.name === 'M_outline') {
+          m.side = THREE.FrontSide;
+          m.polygonOffset = true;
+          m.polygonOffsetFactor = 1;
+        }
+        if (m.name === 'M_lens') { m.transparent = true; m.opacity = 0.22; }
+      }
+    });
+
+    scene.add(model);
+
+    if (gltf.animations.length) {
+      mixer = new THREE.AnimationMixer(model);
+      action = mixer.clipAction(gltf.animations[0]);
+      action.play();
+    }
+
+    skeletonHelper = new THREE.SkeletonHelper(model);
+    skeletonHelper.visible = false;
+    skeletonHelper.material.linewidth = 2;
+    scene.add(skeletonHelper);
+
+    loaderEl.classList.add('done');
+  },
+  (e) => {
+    if (e.lengthComputable) barEl.style.width = (e.loaded / e.total * 100) + '%';
+  },
+  (e) => {
+    document.getElementById('loader-txt').textContent =
+      'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
+    fail('GLTFLoader: ' + e.message);
+  }
+);
+
+// ------------------------------------------------------------ controles ---
+const toggle = (btn, fn) => btn.addEventListener('click', () => {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', on);
+  fn(on, btn);
+});
+
+toggle(document.getElementById('btn-play'), (on, b) => {
+  b.textContent = on ? 'Pausa' : 'Reanudar';
+  if (action) action.paused = !on;
+});
+toggle(document.getElementById('btn-spin'), (on) => { controls.autoRotate = on; });
+toggle(document.getElementById('btn-bones'), (on) => {
+  if (skeletonHelper) skeletonHelper.visible = on;
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  camera.position.copy(HOME);
+  controls.target.copy(TARGET);
+  controls.update();
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ------------------------------------------------------------------ loop --
+renderer.setAnimationLoop(() => {
+  if (mixer) mixer.update(clock.getDelta());
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
