@@ -6,10 +6,34 @@ Robot low-poly riggeado y animado, con un visor web hecho en three.js.
 
 ```
 docs/
-  index.html          visor
-  robot_rigged.glb    modelo riggeado + animación Idle
-  vendor/three/       three.js 0.169 (sin CDN)
+  index.html            visor
+  robot.glb             lo que carga el visor: 1 armature + 2 mallas + Idle
+  robot_rigged.glb      solo el modelo 1; es la fuente del rig
+  vendor/three/         three.js 0.169 (sin CDN)
+
+rig_cubehead.py         riggea el CubeHead y genera docs/robot.glb
+robot_cubehead_solo.blend   piezas del modelo 2, sin rig
 ```
+
+## Los dos modelos
+
+`robot.glb` lleva las dos mallas (`Modelo1` y `Modelo2`) skinneadas al **mismo**
+armature, con una sola acción `Idle`. Comparten rig y animación: cambiar de
+modelo en el visor solo alterna la visibilidad de una malla u otra, sin recargar
+nada y sin reiniciar la animación.
+
+El CubeHead se pudo enganchar al rig original porque usa las mismas
+proporciones y la misma convención de nombres por pieza (`arm_upper_L`,
+`coat_flap_R`, …), así que cada pieza se asigna a su hueso por prefijo.
+
+## Regenerar el modelo
+
+```bash
+blender -b robot_cubehead_solo.blend -P rig_cubehead.py
+```
+
+Lee `docs/robot_rigged.glb` para sacar el esqueleto y la animación, y escribe
+`docs/robot.glb`.
 
 ## Ver en local
 
@@ -35,3 +59,6 @@ Guardar y esperar un par de minutos.
 Arrastrar para orbitar, rueda para zoom. Los botones de abajo pausan la
 animación, paran el giro automático, muestran el esqueleto y reencuadran la
 cámara.
+
+Arriba a la derecha se cambia entre *Modelo 1* y *Modelo 2*. La cámara no se
+mueve al cambiar y la animación sigue corriendo: es el mismo rig.

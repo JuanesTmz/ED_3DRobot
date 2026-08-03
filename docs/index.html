@@ -45,6 +45,16 @@
   button:hover{background:rgba(39,52,74,.07)}
   button[aria-pressed="true"]{background:var(--magenta);color:#fff}
 
+  #models{
+    position:fixed;top:18px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #models button{padding:7px 14px;font-size:12px}
+  #models button[aria-pressed="true"]{background:var(--teal)}
+
   #hint{
     position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
   }
@@ -65,6 +75,7 @@
   @media (max-width:560px){
     #hint{display:none}
     header{padding:16px 18px}
+    #models{top:auto;bottom:82px;right:50%;transform:translateX(50%)}
   }
 </style>
 </head>
@@ -76,6 +87,11 @@
   <h1>ED <span>3D Robot</span></h1>
   <div class="sub">low-poly &middot; three.js</div>
 </header>
+
+<div id="models">
+  <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
+  <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+</div>
 
 <div id="panel">
   <button id="btn-play"  aria-pressed="true">Pausa</button>
@@ -111,8 +127,10 @@ const app = document.getElementById('app');
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+// se recalculan al cargar cada modelo, a partir de su bounding box
 const HOME = new THREE.Vector3(2.4, 1.9, 3.6);
 const TARGET = new THREE.Vector3(0, 0.95, 0);
+const VIEW_DIR = new THREE.Vector3(2.4, 0.95, 3.6).normalize();
 camera.position.copy(HOME);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -162,16 +180,51 @@ const ground = new THREE.Mesh(
 ground.receiveShadow = true;
 scene.add(ground);
 
-let mixer = null, action = null, skeletonHelper = null;
+// robot.glb trae las dos mallas skinneadas al MISMO armature y una sola
+// accion Idle: cambiar de modelo es solo alternar visibilidad, el rig y la
+// animacion son compartidos y no se reinician.
+const MESHES = ['Modelo1', 'Modelo2'];
+
+let model = null, mixer = null, action = null, skeletonHelper = null;
+const parts = {};
 const clock = new THREE.Clock();
 
 const loaderEl = document.getElementById('loader');
+const loaderTxt = document.getElementById('loader-txt');
 const barEl = document.querySelector('.bar i');
+const btnPlay  = document.getElementById('btn-play');
+const btnBones = document.getElementById('btn-bones');
+const modelBtns = [...document.querySelectorAll('#models button')];
+
+// deja la camara a una distancia proporcional al tamano del modelo
+function frame(obj) {
+  const box = new THREE.Box3().setFromObject(obj);
+  box.getCenter(TARGET);
+  const size = box.getSize(new THREE.Vector3());
+  const radius = Math.max(size.x, size.y, size.z) * 0.5;
+  const dist = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.7;
+
+  HOME.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
+  controls.minDistance = dist * 0.35;
+  controls.maxDistance = dist * 3;
+  resetView();
+}
+
+function resetView() {
+  camera.position.copy(HOME);
+  controls.target.copy(TARGET);
+  controls.update();
+}
+
+function showMesh(name) {
+  for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
+  for (const b of modelBtns) b.setAttribute('aria-pressed', b.dataset.mesh === name);
+}
 
 new GLTFLoader().load(
-  'robot_rigged.glb',
+  'robot.glb',
   (gltf) => {
-    const model = gltf.scene;
+    model = gltf.scene;
 
     model.traverse((o) => {
       if (!o.isMesh) return;
@@ -182,7 +235,8 @@ new GLTFLoader().load(
 
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
-        if (m.name === 'M_outline') {
+        // contorno por casco invertido: normales ya volteadas al exportar
+        if (/outline/i.test(m.name)) {
           m.side = THREE.FrontSide;
           m.polygonOffset = true;
           m.polygonOffsetFactor = 1;
@@ -192,6 +246,10 @@ new GLTFLoader().load(
     });
 
     scene.add(model);
+
+    for (const n of MESHES) parts[n] = model.getObjectByName(n);
+    const missing = MESHES.filter((n) => !parts[n]);
+    if (missing.length) fail('faltan mallas en robot.glb: ' + missing.join(', '));
 
     if (gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
@@ -204,17 +262,25 @@ new GLTFLoader().load(
     skeletonHelper.material.linewidth = 2;
     scene.add(skeletonHelper);
 
+    // encuadra con las dos mallas visibles: comparten proporciones, asi que
+    // el encuadre vale para las dos y no hay que recolocar la camara al
+    // cambiar de modelo
+    frame(model);
+    showMesh(MESHES[0]);
+
     loaderEl.classList.add('done');
   },
   (e) => {
     if (e.lengthComputable) barEl.style.width = (e.loaded / e.total * 100) + '%';
   },
   (e) => {
-    document.getElementById('loader-txt').textContent =
+    loaderTxt.textContent =
       'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
     fail('GLTFLoader: ' + e.message);
   }
 );
+
+for (const b of modelBtns) b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
 const toggle = (btn, fn) => btn.addEventListener('click', () => {
   const on = btn.getAttribute('aria-pressed') !== 'true';
@@ -222,19 +288,15 @@ const toggle = (btn, fn) => btn.addEventListener('click', () => {
   fn(on, btn);
 });
 
-toggle(document.getElementById('btn-play'), (on, b) => {
+toggle(btnPlay, (on, b) => {
   b.textContent = on ? 'Pausa' : 'Reanudar';
   if (action) action.paused = !on;
 });
 toggle(document.getElementById('btn-spin'), (on) => { controls.autoRotate = on; });
-toggle(document.getElementById('btn-bones'), (on) => {
+toggle(btnBones, (on) => {
   if (skeletonHelper) skeletonHelper.visible = on;
 });
-document.getElementById('btn-reset').addEventListener('click', () => {
-  camera.position.copy(HOME);
-  controls.target.copy(TARGET);
-  controls.update();
-});
+document.getElementById('btn-reset').addEventListener('click', resetView);
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
