@@ -29,6 +29,11 @@
   }
   h1 span{color:var(--magenta)}
   .sub{font-size:13px;opacity:.55}
+  #link-charla{
+    pointer-events:auto;color:var(--magenta);opacity:.9;
+    text-decoration:none;font-weight:600;
+  }
+  #link-charla:hover{text-decoration:underline}
 
   #panel{
     position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
@@ -86,6 +91,7 @@
 <header>
   <h1>ED <span>3D Robot</span></h1>
   <div class="sub">low-poly &middot; three.js</div>
+  <a class="sub" id="link-charla" href="./charla.html">hablar con K-7 →</a>
 </header>
 
 <div id="models">

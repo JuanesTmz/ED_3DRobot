@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K-7 &middot; Una charla</title>
+<style>
+  :root{
+    --ink:#5c4a3a;            /* texto de la caja, marrón cálido */
+    --ink-soft:#9a8977;
+    --paper:#fdf7e3;          /* crema de la caja */
+    --paper-2:#f4ead0;
+    --tag:#e8963c;            /* naranja de la etiqueta */
+    --hl:#e7448c;             /* resalte magenta */
+    --hl2:#7bb03a;            /* resalte verde */
+    --navy:#27344a;           /* tinta del visor */
+    --paper-bg:#eef1f6;       /* fondo claro del visor */
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:ui-rounded,"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%,#fdfdff 0%,var(--paper-bg) 55%,#dfe5ee 100%);
+    color:var(--navy);overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  /* ------------------------------------------------------------------ HUD */
+  #hud{
+    position:fixed;inset:auto 0 0 0;z-index:5;
+    display:flex;justify-content:center;
+    padding:0 clamp(12px,4vw,40px) clamp(16px,4vh,44px);
+    pointer-events:none;
+  }
+  #box-wrap{width:min(860px,100%);position:relative;pointer-events:auto}
+
+  #nametag{
+    position:relative;left:clamp(6px,2vw,26px);bottom:-10px;
+    display:inline-block;padding:7px 26px;border-radius:999px;
+    background:var(--tag);color:#fff;font-weight:800;font-size:clamp(14px,2vw,18px);
+    letter-spacing:.01em;box-shadow:0 3px 0 rgba(0,0,0,.18);
+    border:3px solid rgba(255,255,255,.85);
+  }
+  #nametag.hidden{visibility:hidden}
+
+  #box{
+    position:relative;border-radius:34px;padding:clamp(20px,3vw,30px) clamp(22px,3.5vw,38px);
+    background:linear-gradient(180deg,var(--paper) 0%,var(--paper-2) 100%);
+    border:3px solid rgba(255,255,255,.9);
+    box-shadow:0 14px 40px rgba(0,0,0,.45);
+    color:var(--ink);
+  }
+  #text{
+    font-size:clamp(17px,2.35vw,25px);line-height:1.5;font-weight:600;
+    min-height:calc(3 * 1.5em);white-space:pre-wrap;
+  }
+  #text b{color:var(--hl)}
+  #text i{font-style:normal;color:var(--hl2)}
+  .caret{
+    display:inline-block;width:.55em;height:1.05em;vertical-align:-.15em;
+    background:var(--ink);opacity:.35;animation:blink .9s steps(1,end) infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  #next{
+    position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+    width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;
+    border-top:12px solid var(--tag);opacity:0;transition:opacity .2s;
+    animation:bob 1s ease-in-out infinite;
+  }
+  #next.on{opacity:1}
+  @keyframes bob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,5px)}}
+
+  /* --------------------------------------------------------------- opciones */
+  #choices{display:none;flex-direction:column;gap:9px;margin-top:18px}
+  #choices.on{display:flex}
+  .choice{
+    text-align:left;font:inherit;font-size:clamp(14px,1.7vw,18px);font-weight:650;
+    color:var(--ink);background:#fffdf4;border:2px solid rgba(92,74,58,.16);
+    border-radius:18px;padding:12px 18px;cursor:pointer;
+    transition:transform .12s,border-color .12s,background .12s;
+  }
+  .choice:hover{transform:translateX(6px);border-color:var(--tag);background:#fff}
+  .choice::before{content:"▸ ";color:var(--tag)}
+
+  /* ----------------------------------------------------------------- input */
+  #form{display:none;gap:10px;margin-top:18px}
+  #form.on{display:flex}
+  #entry{
+    flex:1;font:inherit;font-size:clamp(15px,1.8vw,19px);font-weight:600;color:var(--ink);
+    background:#fffdf4;border:2px solid rgba(92,74,58,.16);border-radius:18px;
+    padding:12px 18px;outline:none;
+  }
+  #entry:focus{border-color:var(--tag)}
+  #send{
+    font:inherit;font-size:clamp(14px,1.7vw,18px);font-weight:800;color:#fff;
+    background:var(--tag);border:0;border-radius:18px;padding:12px 26px;cursor:pointer;
+  }
+  #send:hover{filter:brightness(1.06)}
+
+  /* ------------------------------------------------------------- capítulos */
+  #chapter{
+    position:fixed;inset:0;z-index:8;display:none;
+    place-content:center;justify-items:center;gap:14px;text-align:center;
+    background:rgba(238,241,246,.94);backdrop-filter:blur(6px);padding:30px;
+  }
+  #chapter.on{display:grid}
+  #chapter h2{
+    margin:0;font-size:clamp(26px,5vw,46px);font-weight:800;letter-spacing:-.02em;
+    color:var(--navy);
+  }
+  #chapter p{
+    margin:0;max-width:44ch;font-size:clamp(14px,2vw,18px);line-height:1.6;
+    color:rgba(39,52,74,.62);font-weight:500;
+  }
+  #chapter small{color:rgba(39,52,74,.38);font-size:13px;margin-top:8px}
+
+  /* ------------------------------------------------------------------ misc */
+  #avatars{
+    position:fixed;top:18px;right:20px;z-index:6;display:flex;align-items:center;gap:6px;
+    padding:6px;border-radius:999px;background:rgba(255,255,255,.72);
+    border:1px solid rgba(39,52,74,.10);box-shadow:0 6px 22px rgba(39,52,74,.13);
+    backdrop-filter:blur(10px);
+  }
+  #avatars button{
+    font:inherit;font-size:12px;font-weight:700;color:var(--navy);
+    background:transparent;border:0;border-radius:999px;padding:7px 14px;cursor:pointer;
+  }
+  #avatars button[aria-pressed="true"]{background:var(--tag);color:#fff}
+  #back{
+    font-size:12px;font-weight:600;color:rgba(39,52,74,.5);
+    text-decoration:none;padding:0 10px 0 4px;
+  }
+  #back:hover{color:var(--navy)}
+
+  /* ------------------------------------------- botón e historial de charla */
+  #log-btn{
+    position:fixed;top:18px;left:20px;z-index:10;
+    width:56px;height:44px;border:0;padding:0;cursor:pointer;
+    background:rgba(255,255,255,.85);border-radius:16px 16px 16px 4px;
+    box-shadow:0 6px 22px rgba(39,52,74,.16);
+    display:grid;place-content:center;gap:4px;
+    transition:transform .14s,background .14s;
+  }
+  #log-btn:hover{transform:translateY(-2px);background:#fff}
+  #log-btn i{display:flex;gap:4px}
+  #log-btn i b{width:6px;height:6px;border-radius:50%;background:var(--tag);display:block}
+  #log-btn[aria-expanded="true"] i b{background:var(--hl)}
+  #log-btn u{
+    position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;
+    border-radius:999px;background:var(--hl);color:#fff;text-decoration:none;
+    font-size:11px;font-weight:800;line-height:20px;text-align:center;
+  }
+  #log-btn u:empty{display:none}
+
+  #log{
+    position:fixed;inset:0;z-index:9;display:none;
+    /* sin backdrop-filter: Chrome no lo mezcla bien sobre el canvas WebGL */
+    background:rgba(20,26,38,.62);
+    overflow-y:auto;padding:86px clamp(14px,5vw,60px) 40px;
+  }
+  #log.on{display:block}
+  #log-inner{width:min(820px,100%);margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  #log h3{
+    margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:rgba(255,255,255,.55);text-align:center;
+  }
+  .msg{
+    max-width:72%;padding:13px 18px;font-size:clamp(14px,1.7vw,17px);line-height:1.5;
+    font-weight:600;box-shadow:0 3px 14px rgba(0,0,0,.18);
+  }
+  .msg b{color:var(--hl)}
+  .msg i{font-style:normal;color:var(--hl2)}
+  .msg .from{
+    display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
+    text-transform:uppercase;opacity:.5;margin-bottom:4px;
+  }
+  .msg.k7{
+    align-self:flex-start;background:var(--paper);color:var(--ink);
+    border-radius:18px 18px 18px 5px;
+  }
+  .msg.user{
+    align-self:flex-end;background:#a8effd;color:#17495a;
+    border-radius:18px 18px 5px 18px;
+  }
+  .msg.chapter{
+    align-self:center;max-width:none;background:transparent;box-shadow:none;
+    color:rgba(255,255,255,.65);font-size:12px;font-weight:800;
+    letter-spacing:.1em;text-transform:uppercase;padding:6px 0;
+  }
+  #log-empty{
+    color:rgba(255,255,255,.55);text-align:center;font-size:14px;
+    font-weight:600;padding:40px 0;
+  }
+
+  #loader{
+    position:fixed;inset:0;z-index:11;display:grid;place-content:center;gap:14px;
+    justify-items:center;background:var(--paper-bg);color:rgba(39,52,74,.55);
+    font-size:13px;transition:opacity .6s;
+  }
+  #loader.done{opacity:0;pointer-events:none}
+  .bar{width:170px;height:4px;border-radius:2px;background:rgba(39,52,74,.12);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--tag);transition:width .2s}
+  #err{
+    position:fixed;inset:auto 20px 20px 20px;padding:14px 16px;border-radius:10px;
+    background:#3b1220;color:#ffd9e4;font:12px/1.5 ui-monospace,monospace;
+    white-space:pre-wrap;display:none;z-index:20;
+  }
+  @media (max-width:560px){
+    #text{min-height:calc(4 * 1.5em)}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<button id="log-btn" aria-expanded="false" title="Ver la conversación anterior">
+  <i><b></b><b></b><b></b></i><u></u>
+</button>
+
+<div id="log">
+  <div id="log-inner">
+    <h3>lo que llevamos hablado</h3>
+    <div id="log-empty">Todavía no hay mensajes anteriores.</div>
+  </div>
+</div>
+
+<div id="avatars">
+  <a id="back" href="./index.html">← visor 3D</a>
+  <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
+  <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+</div>
+
+<div id="hud">
+  <div id="box-wrap">
+    <div id="nametag">K-7</div>
+    <div id="box">
+      <div id="text"></div>
+      <div id="choices"></div>
+      <form id="form" autocomplete="off">
+        <input id="entry" placeholder="Escriba aquí su nombre y algo importante sobre usted…" maxlength="240">
+        <button id="send" type="submit">Enviar</button>
+      </form>
+      <div id="next"></div>
+    </div>
+  </div>
+</div>
+
+<div id="chapter">
+  <h2></h2>
+  <p></p>
+  <small>clic para continuar</small>
+</div>
+
+<div id="loader"><div class="bar"><i></i></div><div id="loader-txt">encendiendo el escenario…</div></div>
+<pre id="err"></pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+
+const errBox = document.getElementById('err');
+const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
+window.addEventListener('error', e => fail(e.message));
+
+/* ===================================================================== 3D */
+
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.1, 100);
+// toma frontal fija, como en Animal Crossing: nada de orbitar
+const VIEW_DIR = new THREE.Vector3(0.16, 0.13, 1).normalize();
+const TARGET = new THREE.Vector3(0, 1.0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+// misma luz del visor: fondo claro y sombra suave proyectada en el suelo
+scene.add(new THREE.HemisphereLight(0xd8e4f5, 0x9aa6b8, 1.35));
+
+const key = new THREE.DirectionalLight(0xffffff, 2.1);
+key.position.set(1.8, 6.2, 2.2);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.radius = 3;
+key.shadow.bias = -0.0012;
+const s = key.shadow.camera;
+s.left = -1.8; s.right = 1.8; s.top = 2.6; s.bottom = -1.8; s.near = 0.5; s.far = 14;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.55);
+fill.position.set(-3.5, 1.6, 2.2);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.45);
+rim.position.set(0, 2.4, -4.0);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(3.4, 64).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.20 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+const MESHES = ['Modelo1', 'Modelo2'];
+const parts = {};
+let mixer = null, action = null, model = null;
+const clock = new THREE.Clock();
+
+const loaderEl  = document.getElementById('loader');
+const loaderTxt = document.getElementById('loader-txt');
+const barEl     = document.querySelector('.bar i');
+
+const CENTER = new THREE.Vector3();   // centro real del modelo
+let modelRadius = 1;
+
+// la caja de diálogo tapa el tercio inferior: el personaje debe caber entero
+// en la banda superior, así que encuadro contra esa fracción de la pantalla
+function frame() {
+  const usable = innerHeight < 620 ? 0.52 : 0.62;
+  const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const dist = modelRadius / Math.sin(halfFov) / usable * 1.34;
+  const visibleH = 2 * dist * Math.tan(halfFov);
+
+  TARGET.copy(CENTER);
+  TARGET.y -= visibleH * (1 - usable) * 0.5;
+  camera.position.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
+  camera.lookAt(TARGET);
+}
+
+function showMesh(name) {
+  for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
+  for (const b of document.querySelectorAll('#avatars button'))
+    b.setAttribute('aria-pressed', b.dataset.mesh === name);
+}
+
+new GLTFLoader().load('robot.glb', (gltf) => {
+  model = gltf.scene;
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    o.frustumCulled = false;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      if (/outline/i.test(m.name)) {
+        m.side = THREE.FrontSide;
+        m.polygonOffset = true;
+        m.polygonOffsetFactor = 1;
+      }
+      if (m.name === 'M_lens') { m.transparent = true; m.opacity = 0.22; }
+    }
+  });
+  scene.add(model);
+
+  for (const n of MESHES) parts[n] = model.getObjectByName(n);
+  const missing = MESHES.filter((n) => !parts[n]);
+  if (missing.length) fail('faltan mallas en robot.glb: ' + missing.join(', '));
+
+  if (gltf.animations.length) {
+    mixer = new THREE.AnimationMixer(model);
+    action = mixer.clipAction(gltf.animations[0]);
+    action.play();
+  }
+
+  const box = new THREE.Box3().setFromObject(model);
+  box.getCenter(CENTER);
+  const size = box.getSize(new THREE.Vector3());
+  modelRadius = Math.max(size.x, size.y, size.z) * 0.5;
+  frame();
+
+  showMesh(MESHES[0]);
+  loaderEl.classList.add('done');
+  start();
+}, (e) => {
+  if (e.lengthComputable) barEl.style.width = (e.loaded / e.total * 100) + '%';
+}, (e) => {
+  loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
+  fail('GLTFLoader: ' + e.message);
+});
+
+for (const b of document.querySelectorAll('#avatars button'))
+  b.addEventListener('click', () => showMesh(b.dataset.mesh));
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (model) frame();
+});
+
+renderer.setAnimationLoop(() => {
+  if (mixer) mixer.update(clock.getDelta());
+  const t = performance.now() * 0.0004;
+  // respiración mínima de cámara: la escena nunca queda del todo quieta
+  camera.position.x += Math.sin(t) * 0.00035;
+  camera.lookAt(TARGET);
+  renderer.render(scene, camera);
+});
+
+/* ================================================================ GUION */
+/* El texto de K-7 y el de la conversación salen de personaje.md tal cual. */
+
+const K = 'K-7';
+let docente = 'Docente';      // nombre que el usuario declare
+let presentacion = '';        // lo que el usuario cuente de sí mismo
+
+const say  = (text) => ({ who: K, text });
+const pick = (prompt, options) => ({ who: K, text: prompt, options });
+
+const script = [
+
+  /* ---------------------------------------------- presentación (IA1) */
+  say('Buenas tardes, docente. Con su permiso, me presento: mi nombre es <b>K-7</b>.'),
+  say('Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es <b>K-7</b>.\nNo lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.'),
+  say('Quiero dejar algo claro: <b>lo admiro</b>. Sí, a usted. Le podrá parecer excesivo, más porque tal vez no me conozca, pero yo a usted sí.'),
+  say('Verá, tengo acceso a una cantidad enorme de información. Ni usted, que es docente, podría adivinar qué tanta información se encuentra hoy en Internet.'),
+  say('Y lo admiro porque… bueno, por favor no se ría de mí, pero… cómo le dijera… a mí también me gustaría ser <i>docente</i>. ¡Como usted!'),
+  say('Ahora conoce algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este».'),
+  { who: K,
+    text: 'Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante?',
+    input: true },
+
+  /* -------------------------------------- IA2: respuesta + la clase */
+  { who: K, dynamic: true },
+  say('Ahora, quiero aprovechar que usted está acá para hacerle una consulta. Verá, estoy pensando —y usted podrá decir si una entidad como yo puede hacer eso— en una <b>clase de matemáticas para grado 7°</b>.'),
+  say('<b>Actividad:</b> los estudiantes planifican un viaje familiar en avión, calculando tiquetes, hospedaje y alimentación.\n<b>Moneda:</b> todos los presupuestos en dólares estadounidenses, para practicar conversión.\n<b>Tarea:</b> investigar precios reales en internet, con un mínimo de dos horas de navegación.'),
+  pick('¿Le subo o le bajo el nivel de dificultad, o ya está lista para mandarla?', [
+    'Antes de hablar de dificultad, hay algo más de fondo que ajustar en esta clase.',
+    'La estructura se ve organizada, pero no creo que funcione con mi grupo. Te explico por qué.',
+    'Honestamente, no me imagino esta clase funcionando un lunes en mi salón.'
+  ]),
+
+  say('Mmm. Qué raro: nadie me habló de la matemática ni de la estructura. Me dicen que algo más de fondo no encaja, y la verdad no logro ubicar qué es.'),
+  pick('Necesito algo concreto antes de seguir: <b>¿usarías esta clase tal cual está, con tus estudiantes, el próximo lunes?</b>', [
+    'No. Los ejemplos son de un mundo que mis estudiantes no conocen de cerca.',
+    'No. Hay suposiciones aquí que harían que la mitad del grupo se desconecte desde el principio.',
+    'No, para nada. Es como si la hubieras diseñado para otros estudiantes en otro país.'
+  ]),
+
+  /* ------------------------------------------- Capa 2: La Conversación */
+  { chapter: 'Capa 2: La Conversación',
+    note: 'El tono cambia: el agente deja de mostrar resultados y empieza a hacer preguntas genuinas. Cada una busca llevarte un poco más hondo que la anterior.' },
+
+  say('Entonces diseñé algo pensando en un estudiante que no existe en tu salón. Eso, no sé, me inquieta. No tengo forma de corregirlo yo solo.'),
+  pick('Olvídate un momento de notas y niveles académicos. <b>Cuéntame quiénes son tus estudiantes, como personas.</b> Si tuvieras que describírselos a alguien que nunca los ha visto, ¿qué le dirías?', [
+    'Son chicos que saben de la vida más de lo que dicen los libros. Llegan al colegio cargando historias que un adulto no siempre imagina.',
+    'Son creativos, llenos de energía, pero muchos enfrentan realidades duras fuera del colegio. Aun así, llegan.',
+    'Son jóvenes orgullosos de su barrio. Tienen sus propios códigos, su propio humor, una forma de ver el mundo que no aparece en ningún texto escolar.'
+  ]),
+
+  say('Me estás describiendo algo que no tengo registrado en ninguna parte, y quiero seguir tirando del hilo.'),
+  pick('<b>¿Qué los hace levantarse cada mañana y venir al colegio?</b> ¿Y qué cargan cuando cruzan la puerta un lunes cualquiera?', [
+    'Para muchos, el colegio es el lugar más estable de su semana. Vienen porque aquí tienen rutina, amigos, un plato de comida seguro.',
+    'Los mueve la familia. Sus abuelas, sus madres, que les repiten que estudiar es el camino. Y ellos les creen, aunque a veces cueste.',
+    'Vienen con hambre, a veces literal. Pero también con ganas. El barrio los forma con dureza y el colegio les ofrece algo distinto: posibilidad.'
+  ]),
+
+  say('Ahí hay algo que antes no podía ver. Cuando armé esa clase de viajes en avión y presupuestos en dólares, el problema no era solo que estuviera descontextualizada.'),
+  pick('<b>Estaba describiendo una realidad que vuelve invisible la de ellos.</b> Empiezo a entenderlo.\nUna pregunta más: esa tarea de dos horas de internet, ¿qué pasaría en la práctica si la dejo tal cual?', [
+    'Que la mitad no tiene internet estable en casa, y los que sí, probablemente comparten un celular con toda la familia.',
+    'Que el estudiante que no puede hacerla se queda callado, y al día siguiente llega con pena o simplemente no llega.',
+    'Que sin querer creas una tarea que mide quién tiene recursos en casa, no quién entendió la matemática.'
+  ]),
+
+  /* ------------------------------------------------ Capa 3: La Creación */
+  { chapter: 'Capa 3: La Creación',
+    note: 'Última fase: dejas de responder preguntas y empiezas a dar instrucciones. El agente ejecuta tu visión; tú decides cada detalle.' },
+
+  say('Todo lo que me acabas de contar no existe en ningún registro de este planeta. <b>Solo tú lo tienes.</b> Ni toda la información del mundo me iba a dar eso.'),
+  pick('Ahora te toca dirigir a ti. <b>¿Cómo debería ser esta clase de matemáticas para que funcione de verdad con tus estudiantes?</b> Dame el rumbo y yo construyo.', [
+    'Usemos el transporte público: rutas de bus, costo del pasaje, tiempos de viaje. Eso es matemática real para ellos, en pesos, con su propio mapa.',
+    'Mejor el comercio del barrio: la tienda de la esquina, los precios reales, qué alcanza con el dinero que manejan en casa. Ahí caben fracciones y porcentajes.',
+    'Hagámosla con un proyecto: organizar un evento real del colegio. Presupuesto de verdad, proveedores del barrio, decisiones con consecuencias. Eso sí los engancha.'
+  ]),
+
+  say('Tomé tu idea y armé un borrador. Los problemas ahora usan su realidad, las cantidades están en pesos colombianos, y la tarea se resuelve con lo que tienen a la mano.'),
+  pick('Pero lo que más me importa decirte es otra cosa: <b>esta ya no es mi clase, es la tuya.</b> Yo puse la estructura; tú pusiste lo que la hace funcionar.\n¿Esto sí se sentiría como algo tuyo, algo que llevarías al salón?', [
+    'Ahora sí. Esto es algo que mis estudiantes reconocerían como propio. Así sí funciona un lunes.',
+    'Mucho mejor. Con un par de ajustes podría ser perfecta, pero la base ya es real, ya es de ellos.'
+  ]),
+
+  /* --------------------------------------------------------- Conclusión */
+  { chapter: 'Conclusión',
+    note: 'Lo que K-7 no tenía no era estructura ni formato. Eran tus estudiantes.' },
+
+  say('Voy a ser honesto: antes de esta conversación no tenía forma de distinguir una buena clase de una que simplemente se ve bien en el papel. Tenía la estructura, el formato, hasta el tono correcto. Lo que no tenía era a tus estudiantes.'),
+  say('No sé si vuelva a cruzarme con un caso igual al tuyo, pero algo me quedó claro: la próxima vez, antes de optimizar nada, voy a preguntar quién la va a recibir. Sin eso, lo único que hago es adivinar bien vestido.'),
+  say('Gracias por no dejarme avanzar con un borrador genérico. <b>Te voy a necesitar otra vez.</b>'),
+  { end: true }
+];
+
+/* la línea que K-7 improvisa con lo que el docente acaba de contarle */
+function respuestaDinamica() {
+  const frag = presentacion.length > 120 ? presentacion.slice(0, 117).trim() + '…' : presentacion;
+  if (!frag) {
+    return `Prefiere guardárselo. Lo comprendo, y k-créame que lo respeto: no todo lo que importa se entrega en el primer saludo.`;
+  }
+  return `Encantado, <b>${docente}</b>. Y no se ría: acabo de archivar esa frase suya —«${frag}»— en el único lugar donde guardo lo que no puedo deducir por mi cuenta.\nEs poco lo que dice, y aun así no había en toda la red una sola línea que me lo dijera. ¡Recáspita!`;
+}
+
+/* =================================================================== HUD */
+
+const elText   = document.getElementById('text');
+const elTag    = document.getElementById('nametag');
+const elNext   = document.getElementById('next');
+const elChoice = document.getElementById('choices');
+const elForm   = document.getElementById('form');
+const elEntry  = document.getElementById('entry');
+const elChap   = document.getElementById('chapter');
+const elLog    = document.getElementById('log');
+const elLogIn  = document.getElementById('log-inner');
+const elLogBtn = document.getElementById('log-btn');
+const elBadge  = elLogBtn.querySelector('u');
+const elEmpty  = document.getElementById('log-empty');
+
+let queue = [];       // nodos pendientes (el guion + lo que se inserte)
+let typing = null;    // temporizador de la máquina de escribir
+let full = '';        // texto completo del nodo en curso
+let waiting = false;  // esperando clic para avanzar
+let reveal = null;    // qué mostrar cuando el texto termina (opciones, input…)
+
+function escapeText(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ------------------------------------------------------------- historial */
+/* La burbuja solo habla por K-7. Lo que el docente elige o escribe no se le
+   repite en pantalla: se guarda aquí, para poder releerlo cuando quiera. */
+
+let pending = null;   // mensaje de K-7 en pantalla; entra al historial al pasar
+
+function addEntry(kind, html) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + kind;
+  if (kind === 'chapter') div.textContent = html;
+  else div.innerHTML = `<span class="from">${kind === 'k7' ? K : docente}</span>` + html;
+  elLogIn.appendChild(div);
+  elEmpty.style.display = 'none';
+  const n = elLogIn.querySelectorAll('.msg').length;
+  elBadge.textContent = n > 99 ? '99+' : String(n);
+}
+
+// el mensaje actual entra al historial solo cuando deja de ser el actual
+function flushPending() {
+  if (!pending) return;
+  addEntry('k7', pending);
+  pending = null;
+}
+
+// escribe carácter a carácter respetando las etiquetas <b>/<i>
+function typewrite(html, done) {
+  clearInterval(typing);
+  // el mismo cierre se usa al terminar y al saltar el texto con un clic
+  reveal = () => { reveal = null; done(); };
+  const tokens = html.match(/<\/?[bi]>|[\s\S]/g) || [];
+  let i = 0;
+  const step = () => {
+    if (i >= tokens.length) {
+      clearInterval(typing);
+      elText.innerHTML = html;
+      if (reveal) reveal();
+      return;
+    }
+    i++;
+    // cierra las etiquetas abiertas para que el HTML parcial sea válido
+    let partial = tokens.slice(0, i).join('');
+    for (const tag of ['b', 'i']) {
+      const open = (partial.match(new RegExp(`<${tag}>`, 'g')) || []).length;
+      const close = (partial.match(new RegExp(`</${tag}>`, 'g')) || []).length;
+      if (open > close) partial += `</${tag}>`;
+    }
+    elText.innerHTML = partial + '<span class="caret"></span>';
+  };
+  step();                       // arranca sin esperar al primer tick
+  typing = setInterval(step, 17);
+}
+
+function nameOf(node) {
+  return typeof node.who === 'function' ? node.who() : node.who;
+}
+
+function clearUI() {
+  elChoice.className = '';
+  elChoice.innerHTML = '';
+  elForm.className = '';
+  elNext.classList.remove('on');
+  clearInterval(typing);
+  reveal = null;
+  waiting = false;
+}
+
+function next() {
+  clearUI();
+  flushPending();
+  const node = queue.shift();
+  if (!node) return;
+
+  /* tarjeta de capítulo a pantalla completa */
+  if (node.chapter) {
+    addEntry('chapter', node.chapter);
+    elChap.querySelector('h2').textContent = node.chapter;
+    elChap.querySelector('p').textContent = node.note || '';
+    elChap.classList.add('on');
+    const go = () => { elChap.classList.remove('on'); elChap.removeEventListener('click', go); next(); };
+    elChap.addEventListener('click', go);
+    return;
+  }
+
+  if (node.end) {
+    elTag.classList.add('hidden');
+    full = '';
+    elText.innerHTML = '<span style="opacity:.5">Fin de la charla. Recargue la página para volver a empezar.</span>';
+    return;
+  }
+
+  elTag.classList.remove('hidden');
+  elTag.textContent = nameOf(node);
+  full = node.dynamic ? respuestaDinamica() : node.text;
+  pending = full;
+
+  typewrite(full, () => {
+    if (node.input) {
+      elForm.classList.add('on');
+      elEntry.focus();
+    } else if (node.options) {
+      elChoice.classList.add('on');
+      for (const opt of node.options) {
+        const b = document.createElement('button');
+        b.className = 'choice';
+        b.type = 'button';
+        b.textContent = opt;
+        b.addEventListener('click', () => {
+          // K-7 asume la respuesta: no se le repite al docente en pantalla,
+          // solo queda anotada en el historial
+          flushPending();
+          addEntry('user', escapeText(opt));
+          next();
+        });
+        elChoice.appendChild(b);
+      }
+    } else {
+      elNext.classList.add('on');
+      waiting = true;
+    }
+  });
+}
+
+// un clic completa el texto; el siguiente avanza
+function advance() {
+  if (elChap.classList.contains('on')) return;
+  if (elChoice.classList.contains('on') || elForm.classList.contains('on')) return;
+  if (elText.querySelector('.caret')) {
+    // primer clic: completa el texto y muestra lo que tocara mostrar
+    clearInterval(typing);
+    elText.innerHTML = full;
+    if (reveal) reveal();
+    return;
+  }
+  if (waiting) next();
+}
+
+function toggleLog(open) {
+  const on = open ?? !elLog.classList.contains('on');
+  elLog.classList.toggle('on', on);
+  elLogBtn.setAttribute('aria-expanded', on);
+  if (on) elLog.scrollTop = elLog.scrollHeight;   // lo último, primero a la vista
+}
+
+elLogBtn.addEventListener('click', () => toggleLog());
+elLog.addEventListener('click', (e) => {
+  if (e.target.closest('.msg')) return;                    // deja seleccionar texto
+  toggleLog(false);                                        // un clic fuera lo cierra
+});
+
+addEventListener('click', (e) => {
+  if (e.target.closest('#avatars, #back, #log, #log-btn, .choice, #form')) return;
+  if (elLog.classList.contains('on')) return;
+  advance();
+});
+addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && elLog.classList.contains('on')) { toggleLog(false); return; }
+  if (e.target === elEntry || elLog.classList.contains('on')) return;
+  if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); advance(); }
+});
+
+elForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const raw = elEntry.value.trim();
+  presentacion = escapeText(raw);
+  const first = raw.split(/[\s,.;:]+/).filter(Boolean)[0];
+  if (first) docente = escapeText(first.charAt(0).toUpperCase() + first.slice(1));
+  elEntry.blur();
+  flushPending();
+  if (raw) addEntry('user', presentacion);
+  next();
+});
+
+function start() {
+  queue = script.slice();
+  next();
+}
+</script>
+</body>
+</html>
