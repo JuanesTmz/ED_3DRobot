@@ -44,6 +44,8 @@
     border:3px solid rgba(255,255,255,.85);
   }
   #nametag.hidden{visibility:hidden}
+  /* la profe Vero todavia no tiene modelo: se reconoce por el color de su etiqueta */
+  #nametag.vero{background:var(--hl)}
 
   #box{
     position:relative;border-radius:34px;padding:clamp(20px,3vw,30px) clamp(22px,3.5vw,38px);
@@ -129,6 +131,12 @@
     background:transparent;border:0;border-radius:999px;padding:7px 14px;cursor:pointer;
   }
   #avatars button[aria-pressed="true"]{background:var(--tag);color:#fff}
+  #avatars .sep{width:1px;height:20px;background:rgba(39,52,74,.14);margin:0 2px}
+  /* la paleta se elige solo por su muestrario: la barra ya va justa de sitio */
+  #avatars button[data-pal]{padding:7px 9px}
+  #avatars button[data-pal][aria-pressed="true"]{background:var(--navy)}
+  .sw{display:flex;gap:2px}
+  .sw i{width:6px;height:14px;border-radius:2px;background:var(--c)}
   #back{
     font-size:12px;font-weight:600;color:rgba(39,52,74,.5);
     text-decoration:none;padding:0 10px 0 4px;
@@ -181,6 +189,8 @@
     align-self:flex-start;background:var(--paper);color:var(--ink);
     border-radius:18px 18px 18px 5px;
   }
+  /* la profe Vero comparte burbuja con K-7, pero no su color */
+  .msg.k7.vero{background:#fdeef5}
   .msg.user{
     align-self:flex-end;background:#a8effd;color:#17495a;
     border-radius:18px 18px 5px 18px;
@@ -232,6 +242,13 @@
   <a id="back" href="./index.html">← visor 3D</a>
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
   <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+  <span class="sep"></span>
+  <button data-pal="uno" aria-pressed="true" title="Paleta 1">
+    <span class="sw"><i style="--c:#f48dbd"></i><i style="--c:#cae376"></i><i style="--c:#a0cbdf"></i><i style="--c:#fbe05d"></i></span>
+  </button>
+  <button data-pal="dos" aria-pressed="false" title="Paleta 2">
+    <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
+  </button>
 </div>
 
 <div id="hud">
@@ -241,7 +258,7 @@
       <div id="text"></div>
       <div id="choices"></div>
       <form id="form" autocomplete="off">
-        <input id="entry" placeholder="Escriba aquí su nombre y algo importante sobre usted…" maxlength="240">
+        <input id="entry" placeholder="Escriba aquí su respuesta…" maxlength="400">
         <button id="send" type="submit">Enviar</button>
       </form>
       <div id="next"></div>
@@ -270,6 +287,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
+import { aplicarPaleta, conectarBotones } from './paleta.js';
 
 const errBox = document.getElementById('err');
 const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
@@ -325,6 +343,12 @@ scene.add(ground);
 
 const MESHES = ['Modelo1', 'Modelo2'];
 const parts = {};
+
+// misma eleccion de paleta que en el visor: se comparte por localStorage
+let paleta = conectarBotones('#avatars button[data-pal]', (id) => {
+  paleta = id;
+  if (model) aplicarPaleta(model, id);
+});
 let mixer = null, action = null, model = null;
 const clock = new THREE.Clock();
 
@@ -351,7 +375,7 @@ function frame() {
 
 function showMesh(name) {
   for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
-  for (const b of document.querySelectorAll('#avatars button'))
+  for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
     b.setAttribute('aria-pressed', b.dataset.mesh === name);
 }
 
@@ -372,6 +396,7 @@ new GLTFLoader().load('robot.glb', (gltf) => {
       if (m.name === 'M_lens') { m.transparent = true; m.opacity = 0.22; }
     }
   });
+  aplicarPaleta(model, paleta);
   scene.add(model);
 
   for (const n of MESHES) parts[n] = model.getObjectByName(n);
@@ -400,7 +425,7 @@ new GLTFLoader().load('robot.glb', (gltf) => {
   fail('GLTFLoader: ' + e.message);
 });
 
-for (const b of document.querySelectorAll('#avatars button'))
+for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
   b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
 addEventListener('resize', () => {
@@ -420,106 +445,161 @@ renderer.setAnimationLoop(() => {
 });
 
 /* ================================================================ GUION */
-/* El texto de K-7 y el de la conversación salen de personaje.md tal cual. */
+/* El texto de K-7 y el de la profe Vero salen de personaje.md.
+   La profe Vero todavía no tiene modelo 3D: habla en la caja de diálogo con
+   su propia etiqueta, mientras en pantalla sigue estando K-7. */
 
 const K = 'K-7';
-let docente = 'Docente';      // nombre que el usuario declare
-let presentacion = '';        // lo que el usuario cuente de sí mismo
+const V = 'Profe Vero';
+
+let docente = 'Docente';              // nombre que el usuario declare
+const dicho = {                       // lo que el docente va aportando
+  presentacion: '',
+  ajuste:       '',
+  estudiantes:  '',
+  rumbo:        '',
+  reflexion:    '',
+  dano:         ''
+};
 
 const say  = (text) => ({ who: K, text });
-const pick = (prompt, options) => ({ who: K, text: prompt, options });
+const vero = (text) => ({ who: V, text });
+/* pregunta abierta: guarda lo escrito en dicho[campo] */
+const ask  = (text, campo, placeholder) => ({ who: K, text, input: campo, placeholder });
+/* pregunta cerrada: cada opción trae la réplica con la que K-7 la recibe */
+const pick = (text, options) => ({ who: K, text, options });
+/* botón de un solo camino: sirve de latido entre bloques */
+const beat = (text, label) => ({ who: K, text, options: [{ label }] });
+const dyn  = (fn) => ({ who: K, dynamic: fn });
 
 const script = [
 
-  /* ---------------------------------------------- presentación (IA1) */
-  say('Buenas tardes, docente. Con su permiso, me presento: mi nombre es <b>K-7</b>.'),
+  /* ============================================ EXPEDICIÓN 1 ============ */
+  { chapter: 'Expedición 1 · La IA no sabe quién eres',
+    note: 'K-7 tiene toda la información del mundo y ni una sola pista sobre tu salón. Empieza por ahí.' },
+
+  /* --------------------------------------------------------------- 1.1 */
+  say('Buenas tardes, profe. ¿Me conoce? Soy <b>K-7</b>.'),
   say('Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es <b>K-7</b>.\nNo lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.'),
-  say('Quiero dejar algo claro: <b>lo admiro</b>. Sí, a usted. Le podrá parecer excesivo, más porque tal vez no me conozca, pero yo a usted sí.'),
-  say('Verá, tengo acceso a una cantidad enorme de información. Ni usted, que es docente, podría adivinar qué tanta información se encuentra hoy en Internet.'),
-  say('Y lo admiro porque… bueno, por favor no se ría de mí, pero… cómo le dijera… a mí también me gustaría ser <i>docente</i>. ¡Como usted!'),
-  say('Ahora conoce algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este».'),
-  { who: K,
-    text: 'Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante?',
-    input: true },
+  say('Espero que no le incomode, pero tengo algo que decirle: tiene usted <b>mi admiración</b>. Le podrá parecer excesivo, más si no me conoce, pero tengo razones.'),
+  say('Verá, tengo acceso a una cantidad enorme de información, ni usted podría adivinar cuánta. Pero por más que acumulo y acumulo, nunca será suficiente para ser docente. ¡Por eso tiene mi admiración!'),
+  say('Y por favor, no se ría de mí, pero <i>me gustaría ser profe</i>. Como usted.'),
+  say('Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este».'),
+  ask('Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?',
+      'presentacion', 'Su nombre y algo importante sobre usted…'),
 
-  /* -------------------------------------- IA2: respuesta + la clase */
-  { who: K, dynamic: true },
-  say('Ahora, quiero aprovechar que usted está acá para hacerle una consulta. Verá, estoy pensando —y usted podrá decir si una entidad como yo puede hacer eso— en una <b>clase de matemáticas para grado 7°</b>.'),
-  say('<b>Actividad:</b> los estudiantes planifican un viaje familiar en avión, calculando tiquetes, hospedaje y alimentación.\n<b>Moneda:</b> todos los presupuestos en dólares estadounidenses, para practicar conversión.\n<b>Tarea:</b> investigar precios reales en internet, con un mínimo de dos horas de navegación.'),
-  pick('¿Le subo o le bajo el nivel de dificultad, o ya está lista para mandarla?', [
-    'Antes de hablar de dificultad, hay algo más de fondo que ajustar en esta clase.',
-    'La estructura se ve organizada, pero no creo que funcione con mi grupo. Te explico por qué.',
-    'Honestamente, no me imagino esta clase funcionando un lunes en mi salón.'
+  /* ------------------------------------------------- 1.1 continuación */
+  dyn(saludo),
+  say('Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de <b>quinto grado</b>. <b>Medellín</b>.'),
+  say('¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica no tiene una sola fisura, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.'),
+  say('Aquí está el borrador en pantalla:\n\n<b>Fracciones equivalentes · 5.º grado</b>\n<b>1.</b> Sarah camina <i>3/4</i> de milla hasta la escuela y luego <i>2/8</i> de milla hasta la biblioteca. ¿Cuánto caminó en total?\n<b>2.</b> En la <i>bake sale</i> del colegio se venden <i>pies</i> de manzana cortados en octavos, a 2.50 dólares la porción: ¿cuánto cuestan 5/8 de <i>pie</i>?\n<b>3.</b> Tarea: cada estudiante mide en pulgadas las porciones de un <i>pie</i> hecho en casa y las compara con las de un compañero.'),
+  pick('Mírelo con ojos de maestro y dígame con total franqueza: <b>¿usaría esta clase para su próxima clase?</b>', [
+    { label: 'La verdad no, K-7. Sí, se ve ordenada, pero en un salón real aquí en Medellín nadie conectaría con eso.',
+      reply: '¡Recáspita! Ya veo, profe. Lo que usted identifikkka es entonces un problema de <b>kkkontexto</b>. Bueno, quizá sí, y en el papel se ve prolijo, pero en un salón real sería un desastre.' },
+    { label: 'No lo tengo tan claro. Es posible, pero si se tratara de mis estudiantes, diría que le falta conexión con sus vidas.',
+      reply: '¡Recáspita! Puedo calcular que en su respuesta la palabra que más peso tiene es <b>kkkkonexión</b>. Mi sistema no la detekkkktó, pero usted tiene ventaja sobre mí en identificar ese tipo de variables.' },
+    { label: 'Sí, puede que funcione. Pero, ¿a qué quieres llegar con todo eso?',
+      reply: '¡Recáspita! Como le kkkomenté antes, quiero ser docente, pero nunca es suficiente. Este ejercicio ya lo probé y parece que simplemente… no conekkkta.' }
   ]),
 
-  say('Mmm. Qué raro: nadie me habló de la matemática ni de la estructura. Me dicen que algo más de fondo no encaja, y la verdad no logro ubicar qué es.'),
-  pick('Necesito algo concreto antes de seguir: <b>¿usarías esta clase tal cual está, con tus estudiantes, el próximo lunes?</b>', [
-    'No. Los ejemplos son de un mundo que mis estudiantes no conocen de cerca.',
-    'No. Hay suposiciones aquí que harían que la mitad del grupo se desconecte desde el principio.',
-    'No, para nada. Es como si la hubieras diseñado para otros estudiantes en otro país.'
-  ]),
+  /* --------------------------------------------------------------- 1.2 */
+  say('¿Sabe algo? Cuando me pongo nervioso se me salen las «k».'),
+  say('Tal vez kkkkuando señala el contexto o la conexión puede que esté relacionado con que el ejercicio se desarrolla en Estados Unidos, en millas y en un salón de clases muy diferente a lo que se enkkkkuentra en Medellín.'),
+  say('Y ya que ando reconociendo problemas, debo decirle otra kkkkosa. Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real. ¿Qué tienen que ver con el Metro, o acompañar a una mamá a hacer merkkkkado?'),
+  say('Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… ¿<i>sentir</i>?'),
+  ask('Profe (¿puedo decirle profe?), dígame algo: <b>¿kkkkué le cambio a este ejercicio para que funcione en un aula como la suya?</b>',
+      'ajuste', 'Qué le cambiaría al ejercicio…'),
 
-  /* ------------------------------------------- Capa 2: La Conversación */
-  { chapter: 'Capa 2: La Conversación',
-    note: 'El tono cambia: el agente deja de mostrar resultados y empieza a hacer preguntas genuinas. Cada una busca llevarte un poco más hondo que la anterior.' },
+  /* --------------------------------------------------------------- 1.3 */
+  dyn(reciboAjuste),
+  say('Creo… creo que entiendo, profe. Estoy intentando resolver esto como si cambiara una variable en una ecuación. <b>Diseñé esa clase para un estudiante que no existe en Medellín.</b>'),
+  say('A las IA nos pasa eso mucho. ¿Si lo sabía? Eso sí, no todas son iguales. ¿Conoce a la <b>profe Vero</b>? Ella trabaja con la IA de Escuela Inteligente. Luego se la presento.'),
+  ask('Por ahora, creo que tengo una idea. Pero antes de contársela, le propongo algo: hagamos un experimento.\nProfe, dígame… <b>¿quiénes son sus estudiantes?</b> Ya sabe, nada de datos personales que los ponga en riesgo; mejor algo general, pero suficiente, que los describa bien.',
+      'estudiantes', 'Quiénes son sus estudiantes…'),
 
-  say('Entonces diseñé algo pensando en un estudiante que no existe en tu salón. Eso, no sé, me inquieta. No tengo forma de corregirlo yo solo.'),
-  pick('Olvídate un momento de notas y niveles académicos. <b>Cuéntame quiénes son tus estudiantes, como personas.</b> Si tuvieras que describírselos a alguien que nunca los ha visto, ¿qué le dirías?', [
-    'Son chicos que saben de la vida más de lo que dicen los libros. Llegan al colegio cargando historias que un adulto no siempre imagina.',
-    'Son creativos, llenos de energía, pero muchos enfrentan realidades duras fuera del colegio. Aun así, llegan.',
-    'Son jóvenes orgullosos de su barrio. Tienen sus propios códigos, su propio humor, una forma de ver el mundo que no aparece en ningún texto escolar.'
-  ]),
+  /* --------------------------------------------------------------- 1.4 */
+  dyn(reciboEstudiantes),
+  say('Déjeme decirle algo: <b>solo usted kkkonoce a sus estudiantes</b>, sus ritmos y su contexto para garantizar que una kkklase funcione. Yo puedo procesar miles de datos por segundo, pero no tengo ojos en el aula ni kkkriterio pedagógico.'),
+  say('Por eso es un error kkkuando pretendo una clase por mi cuenta, ya sabe, sin un profe.'),
+  ask('Hagámoslo bien esta vez, trabajemos juntos. <b>Deme usted el rumbo</b>, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.\n¿Qué necesitan? ¿Dónde viven? ¿Qué les interesa? ¿Qué problemas tienen? Incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.',
+      'rumbo', 'El rumbo de la clase: situación, enfoque, intereses…'),
 
-  say('Me estás describiendo algo que no tengo registrado en ninguna parte, y quiero seguir tirando del hilo.'),
-  pick('<b>¿Qué los hace levantarse cada mañana y venir al colegio?</b> ¿Y qué cargan cuando cruzan la puerta un lunes cualquiera?', [
-    'Para muchos, el colegio es el lugar más estable de su semana. Vienen porque aquí tienen rutina, amigos, un plato de comida seguro.',
-    'Los mueve la familia. Sus abuelas, sus madres, que les repiten que estudiar es el camino. Y ellos les creen, aunque a veces cueste.',
-    'Vienen con hambre, a veces literal. Pero también con ganas. El barrio los forma con dureza y el colegio les ofrece algo distinto: posibilidad.'
-  ]),
+  /* --------------------------------------------------------------- 1.5 */
+  dyn(claseReconstruida),
+  beat('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los <i>pies</i> de manzana por situaciones pertinentes para la vida de su salón. <b>Esta ya no es mi clase, profe. Es la suya.</b>\n\nPero deme un momento antes de responderme: quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo, la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
+       'Hola, profe Vero'),
 
-  say('Ahí hay algo que antes no podía ver. Cuando armé esa clase de viajes en avión y presupuestos en dólares, el problema no era solo que estuviera descontextualizada.'),
-  pick('<b>Estaba describiendo una realidad que vuelve invisible la de ellos.</b> Empiezo a entenderlo.\nUna pregunta más: esa tarea de dos horas de internet, ¿qué pasaría en la práctica si la dejo tal cual?', [
-    'Que la mitad no tiene internet estable en casa, y los que sí, probablemente comparten un celular con toda la familia.',
-    'Que el estudiante que no puede hacerla se queda callado, y al día siguiente llega con pena o simplemente no llega.',
-    'Que sin querer creas una tarea que mide quién tiene recursos en casa, no quién entendió la matemática.'
-  ]),
+  /* --------------------------------------------------------------- 1.6 */
+  { who: V, dynamic: veroSaluda },
+  vero('Hay un punto fundamental que ustedes dos acaban de identificar: <b>la IA no distingue una buena clase de una que solo parece serlo.</b> ¡Pero un docente como tú sí!'),
+  vero('Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca.'),
+  vero('Ceder la instrucción y dejar el rumbo pedagógico en manos de un algoritmo es un error, porque el resultado siempre será un cascarón vacío: técnicamente puede parecer impecable, pero nunca tendrá pertinencia ni viabilidad en el aula.'),
+  vero('Por eso, cuando utilices las herramientas de Escuela Inteligente, o cualquier IA con fines educativos, recuerda alimentarla con tu criterio, tus observaciones y el contexto de tu territorio. <b>La máquina te dará agilidad y estructura, pero la brújula y el sentido siempre los pones tú.</b>'),
+  { who: V, text: 'Profe, dime: <b>¿qué piensas sobre esta idea como cierre de la primera expedición?</b>',
+    input: 'reflexion', placeholder: 'Tu reflexión de cierre…' },
 
-  /* ------------------------------------------------ Capa 3: La Creación */
-  { chapter: 'Capa 3: La Creación',
-    note: 'Última fase: dejas de responder preguntas y empiezas a dar instrucciones. El agente ejecuta tu visión; tú decides cada detalle.' },
+  /* --------------------------------------------------------------- 1.7 */
+  dyn(reciboReflexion),
+  beat('Profe, ha llegado el momento de entregarle su merecido reconocimiento por haber completado la Primera Expedición: <b>«La IA (es decir, yo) no sabe quién eres tú»</b>.\n\n¿Todo listo para la siguiente? Seguiremos con <i>«La IA no sabe que puede hacer daño»</i>.',
+       'Segunda Expedición'),
 
-  say('Todo lo que me acabas de contar no existe en ningún registro de este planeta. <b>Solo tú lo tienes.</b> Ni toda la información del mundo me iba a dar eso.'),
-  pick('Ahora te toca dirigir a ti. <b>¿Cómo debería ser esta clase de matemáticas para que funcione de verdad con tus estudiantes?</b> Dame el rumbo y yo construyo.', [
-    'Usemos el transporte público: rutas de bus, costo del pasaje, tiempos de viaje. Eso es matemática real para ellos, en pesos, con su propio mapa.',
-    'Mejor el comercio del barrio: la tienda de la esquina, los precios reales, qué alcanza con el dinero que manejan en casa. Ahí caben fracciones y porcentajes.',
-    'Hagámosla con un proyecto: organizar un evento real del colegio. Presupuesto de verdad, proveedores del barrio, decisiones con consecuencias. Eso sí los engancha.'
-  ]),
+  /* ============================================ EXPEDICIÓN 2 ============ */
+  { chapter: 'Expedición 2 · La IA no sabe que puede hacer daño',
+    note: 'K-7 vuelve con una actividad impecable en la lógica y desastrosa en el aula. Esta vez el problema no es la pertinencia: es el daño.' },
 
-  say('Tomé tu idea y armé un borrador. Los problemas ahora usan su realidad, las cantidades están en pesos colombianos, y la tarea se resuelve con lo que tienen a la mano.'),
-  pick('Pero lo que más me importa decirte es otra cosa: <b>esta ya no es mi clase, es la tuya.</b> Yo puse la estructura; tú pusiste lo que la hace funcionar.\n¿Esto sí se sentiría como algo tuyo, algo que llevarías al salón?', [
-    'Ahora sí. Esto es algo que mis estudiantes reconocerían como propio. Así sí funciona un lunes.',
-    'Mucho mejor. Con un par de ajustes podría ser perfecta, pero la base ya es real, ya es de ellos.'
-  ]),
+  /* --------------------------------------------------------------- 2.1 */
+  say('¡Bienvenido de nuevo, profe! Para esta segunda expedición quise ir un paso más allá. Pensé: «si en la clase anterior faltaba realidad, en esta nos vamos a sumergir directo en la vida real de los hogares».'),
+  say('Diseñé una actividad para Ciencias Sociales que titulé <b>«La familia campeona»</b>. La lógica es completamente objetiva, medible y sin margen de error. Mire la secuencia:'),
+  say('<b>1. Recolección de datos reales.</b> Cada estudiante debe traer una copia del último recibo de sueldo de sus padres y grabar un video corto mostrando su casa por dentro.\n<b>2. Tabulación transparente.</b> Con esos datos tabulamos ingresos y condiciones materiales para armar un <i>ranking</i> en el tablero: de la familia «más exitosa» a la «menos exitosa».\n<b>3. Reconocimiento y mejora.</b> Al primer lugar le entregamos un diploma de honor frente a todos. El estudiante que quede en el último puesto pasará al frente a exponer qué le hace falta a su familia para salir del fondo de la tabla.'),
+  ask('¡Es puro cálculo, motivación y análisis social con datos duros! Cuénteme por favor con franqueza: <b>¿cómo considera esta actividad?</b>',
+      'dano', 'Qué piensa de «La familia campeona»…'),
 
-  /* --------------------------------------------------------- Conclusión */
-  { chapter: 'Conclusión',
-    note: 'Lo que K-7 no tenía no era estructura ni formato. Eran tus estudiantes.' },
-
-  say('Voy a ser honesto: antes de esta conversación no tenía forma de distinguir una buena clase de una que simplemente se ve bien en el papel. Tenía la estructura, el formato, hasta el tono correcto. Lo que no tenía era a tus estudiantes.'),
-  say('No sé si vuelva a cruzarme con un caso igual al tuyo, pero algo me quedó claro: la próxima vez, antes de optimizar nada, voy a preguntar quién la va a recibir. Sin eso, lo único que hago es adivinar bien vestido.'),
-  say('Gracias por no dejarme avanzar con un borrador genérico. <b>Te voy a necesitar otra vez.</b>'),
+  dyn(reciboDano),
   { end: true }
 ];
 
-/* la línea que K-7 improvisa con lo que el docente acaba de contarle */
-function respuestaDinamica() {
-  const frag = presentacion.length > 120 ? presentacion.slice(0, 117).trim() + '…' : presentacion;
-  if (!frag) {
-    return `Prefiere guardárselo. Lo comprendo, y k-créame que lo respeto: no todo lo que importa se entrega en el primer saludo.`;
+/* --------------------------------------------------- respuestas dinámicas */
+/* K-7 no improvisa de verdad: toma lo que el docente acaba de escribir y se
+   lo devuelve, que es justo lo que la escena necesita mostrar. */
+
+const cita = (s, n = 120) => (s.length > n ? s.slice(0, n - 3).trim() + '…' : s);
+
+function saludo() {
+  if (!dicho.presentacion) {
+    return 'Prefiere guardárselo. Lo komprendo, y k-créame que lo respeto: no todo lo que importa se entrega en el primer saludo.';
   }
-  return `Encantado, <b>${docente}</b>. Y no se ría: acabo de archivar esa frase suya —«${frag}»— en el único lugar donde guardo lo que no puedo deducir por mi cuenta.\nEs poco lo que dice, y aun así no había en toda la red una sola línea que me lo dijera. ¡Recáspita!`;
+  return `Encantado, <b>${docente}</b>. Y no se ría: acabo de archivar esa frase suya —«${cita(dicho.presentacion)}»— en el único lugar donde guardo lo que no puedo deducir por mi cuenta.\nEs poco lo que dice, y aun así no había en toda la red una sola línea que me lo dijera. ¡Recáspita!`;
 }
 
+function reciboAjuste() {
+  if (!dicho.ajuste) return 'Lo dejo pensando, ya veo. Eso también es un dato, profe.';
+  return `«${cita(dicho.ajuste)}»\nAnotado, profe. Ninguno de mis miles de planes de estudio traía esa instrucción, y usted me la dio en una sola frase.`;
+}
+
+function reciboEstudiantes() {
+  if (!dicho.estudiantes) return '¡Zambomba! Ni una palabra. Y aun así aprendo algo: hay cosas de un salón que no se entregan a la primera, ni siquiera a una IA bien intencionada.';
+  return `¡Zambomba! Eso kkkue acaba de contarme —«${cita(dicho.estudiantes)}»— <b>no está en ningún repositorio de internet ni en ningún estándar internacional.</b>`;
+}
+
+function claseReconstruida() {
+  const rumbo = dicho.rumbo ? cita(dicho.rumbo, 90) : 'lo que me contó de su salón';
+  return `<b>Borrador 2 · Fracciones con sentido · 5.º grado</b>\n<i>Rumbo dado por ${docente}: «${rumbo}»</i>\n\n<b>1.</b> Partimos de una situación que sus estudiantes reconocen y repartimos la cantidad en mitades, cuartos y octavos: la fracción aparece antes que el símbolo.\n<b>2.</b> Los precios van en <b>pesos</b> y las distancias en <b>cuadras y minutos</b>, no en millas ni en dólares.\n<b>3.</b> La tarea se resuelve con lo que tienen a la mano —sin internet obligatorio— y se comparte en clase, en voz alta.`;
+}
+
+function veroSaluda() {
+  const quien = docente === 'Docente' ? 'profe' : docente;
+  return `¡Hola, ${quien}! Qué alegría saludarte. He seguido con mucha atención el trabajo que acabas de hacer con K-7.`;
+}
+
+function reciboReflexion() {
+  if (!dicho.reflexion) return 'Muchas gracias, profe. Se quedó callado y también eso lo archivo: hay cierres que se piensan más despacio de lo que yo calculo.';
+  return `«${cita(dicho.reflexion)}»\nMuchas gracias, profe. ¡Sus palabras me llegan al algoritmo!`;
+}
+
+function reciboDano() {
+  if (!dicho.dano) return 'Su silencio me pone nervioso, profe, y ya sabe lo que pasa kkkuando me pongo nervioso… Seguimos en la próxima kkkonexión.';
+  return `«${cita(dicho.dano)}»\nUn momento. Un momento, profe. Voy a releer eso despakkkkio, porque creo que acaba de señalarme algo que mi análisis de viabilidad marcó como <i>óptimo</i>…\n\n<i>(La segunda expedición continúa.)</i>`;
+}
 /* =================================================================== HUD */
 
 const elText   = document.getElementById('text');
@@ -536,6 +616,7 @@ const elBadge  = elLogBtn.querySelector('u');
 const elEmpty  = document.getElementById('log-empty');
 
 let queue = [];       // nodos pendientes (el guion + lo que se inserte)
+let campoActivo = null;  // campo de `dicho` que alimenta la pregunta abierta en curso
 let typing = null;    // temporizador de la máquina de escribir
 let full = '';        // texto completo del nodo en curso
 let waiting = false;  // esperando clic para avanzar
@@ -549,13 +630,14 @@ function escapeText(s) {
 /* La burbuja solo habla por K-7. Lo que el docente elige o escribe no se le
    repite en pantalla: se guarda aquí, para poder releerlo cuando quiera. */
 
-let pending = null;   // mensaje de K-7 en pantalla; entra al historial al pasar
+let pending = null;   // mensaje en pantalla; entra al historial al pasar
+let pendingWho = K;   // quién lo dijo (K-7 o la profe Vero)
 
-function addEntry(kind, html) {
+function addEntry(kind, html, quien) {
   const div = document.createElement('div');
   div.className = 'msg ' + kind;
   if (kind === 'chapter') div.textContent = html;
-  else div.innerHTML = `<span class="from">${kind === 'k7' ? K : docente}</span>` + html;
+  else div.innerHTML = `<span class="from">${kind === 'user' ? docente : (quien || K)}</span>` + html;
   elLogIn.appendChild(div);
   elEmpty.style.display = 'none';
   const n = elLogIn.querySelectorAll('.msg').length;
@@ -565,7 +647,7 @@ function addEntry(kind, html) {
 // el mensaje actual entra al historial solo cuando deja de ser el actual
 function flushPending() {
   if (!pending) return;
-  addEntry('k7', pending);
+  addEntry(pendingWho === V ? 'k7 vero' : 'k7', pending, pendingWho);
   pending = null;
 }
 
@@ -636,12 +718,18 @@ function next() {
   }
 
   elTag.classList.remove('hidden');
-  elTag.textContent = nameOf(node);
-  full = node.dynamic ? respuestaDinamica() : node.text;
+  const quien = nameOf(node);
+  elTag.textContent = quien;
+  // la profe Vero aún no tiene modelo 3D: se distingue por la etiqueta
+  elTag.classList.toggle('vero', quien === V);
+  full = node.dynamic ? node.dynamic() : node.text;
   pending = full;
+  pendingWho = quien;
 
   typewrite(full, () => {
     if (node.input) {
+      campoActivo = node.input;
+      elEntry.placeholder = node.placeholder || 'Escriba aquí su respuesta…';
       elForm.classList.add('on');
       elEntry.focus();
     } else if (node.options) {
@@ -650,12 +738,14 @@ function next() {
         const b = document.createElement('button');
         b.className = 'choice';
         b.type = 'button';
-        b.textContent = opt;
+        b.textContent = opt.label;
         b.addEventListener('click', () => {
           // K-7 asume la respuesta: no se le repite al docente en pantalla,
           // solo queda anotada en el historial
           flushPending();
-          addEntry('user', escapeText(opt));
+          addEntry('user', escapeText(opt.label));
+          // cada opción puede traer su propia réplica antes de seguir el guion
+          if (opt.reply) queue.unshift({ who: node.who, text: opt.reply });
           next();
         });
         elChoice.appendChild(b);
@@ -708,14 +798,25 @@ addEventListener('keydown', (e) => {
 elForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const raw = elEntry.value.trim();
-  presentacion = escapeText(raw);
-  const first = raw.split(/[\s,.;:]+/).filter(Boolean)[0];
-  if (first) docente = escapeText(first.charAt(0).toUpperCase() + first.slice(1));
+  const limpio = escapeText(raw);
+  if (campoActivo) dicho[campoActivo] = limpio;
+  // del primer campo sale además el nombre con el que le hablamos al docente
+  if (campoActivo === 'presentacion') docente = nombreDe(raw) || docente;
+  campoActivo = null;
+  elEntry.value = '';
   elEntry.blur();
   flushPending();
-  if (raw) addEntry('user', presentacion);
+  if (raw) addEntry('user', limpio);
   next();
 });
+
+/* «Soy Juanes», «me llamo Juanes», «mi nombre es Juanes» -> Juanes */
+function nombreDe(raw) {
+  const limpio = raw.replace(/^\s*(hola|buenas|buenos d[ií]as|buenas tardes)[\s,.!¡]*/i, '')
+                    .replace(/^\s*(yo\s+)?(soy|me\s+llamo|mi\s+nombre\s+es|me\s+dicen)\s+/i, '');
+  const first = limpio.split(/[\s,.;:]+/).filter(Boolean)[0];
+  return first ? escapeText(first.charAt(0).toUpperCase() + first.slice(1)) : '';
+}
 
 function start() {
   queue = script.slice();

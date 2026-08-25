@@ -60,6 +60,21 @@
   #models button{padding:7px 14px;font-size:12px}
   #models button[aria-pressed="true"]{background:var(--teal)}
 
+  #palettes{
+    position:fixed;top:64px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #palettes button{
+    display:flex;align-items:center;gap:7px;padding:7px 13px;font-size:12px;
+  }
+  #palettes button[aria-pressed="true"]{background:var(--navy)}
+  /* muestrario: los mismos colores que lleva el modelo */
+  .sw{display:flex;gap:2px}
+  .sw i{width:7px;height:14px;border-radius:2px;background:var(--c)}
+
   #hint{
     position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
   }
@@ -80,7 +95,8 @@
   @media (max-width:560px){
     #hint{display:none}
     header{padding:16px 18px}
-    #models{top:auto;bottom:82px;right:50%;transform:translateX(50%)}
+    #models{top:auto;bottom:126px;right:50%;transform:translateX(50%)}
+    #palettes{top:auto;bottom:82px;right:50%;transform:translateX(50%)}
   }
 </style>
 </head>
@@ -97,6 +113,17 @@
 <div id="models">
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
   <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+</div>
+
+<div id="palettes">
+  <button data-pal="uno" aria-pressed="true">
+    <span class="sw"><i style="--c:#f48dbd"></i><i style="--c:#cae376"></i><i style="--c:#a0cbdf"></i><i style="--c:#fbe05d"></i></span>
+    Paleta 1
+  </button>
+  <button data-pal="dos" aria-pressed="false">
+    <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
+    Paleta 2
+  </button>
 </div>
 
 <div id="panel">
@@ -124,6 +151,7 @@
 import * as THREE from 'three';
 import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { aplicarPaleta, conectarBotones } from './paleta.js';
 
 const errBox = document.getElementById('err');
 const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
@@ -202,6 +230,13 @@ const btnPlay  = document.getElementById('btn-play');
 const btnBones = document.getElementById('btn-bones');
 const modelBtns = [...document.querySelectorAll('#models button')];
 
+// Las dos paletas valen para los dos modelos: cada material tiene un rol y
+// cada paleta da un color por rol (ver paleta.js).
+let paleta = conectarBotones('#palettes button', (id) => {
+  paleta = id;
+  if (model) aplicarPaleta(model, id);
+});
+
 // deja la camara a una distancia proporcional al tamano del modelo
 function frame(obj) {
   const box = new THREE.Box3().setFromObject(obj);
@@ -271,6 +306,8 @@ new GLTFLoader().load(
     // encuadra con las dos mallas visibles: comparten proporciones, asi que
     // el encuadre vale para las dos y no hay que recolocar la camara al
     // cambiar de modelo
+    aplicarPaleta(model, paleta);
+
     frame(model);
     showMesh(MESHES[0]);
 
