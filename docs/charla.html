@@ -323,8 +323,9 @@ key.shadow.mapSize.set(2048, 2048);
 key.shadow.radius = 3;
 key.shadow.bias = -0.0012;
 const s = key.shadow.camera;
-// el volumen cubre tambien los muebles del fondo, no solo a K-7
-s.left = -6.0; s.right = 6.0; s.top = 6.0; s.bottom = -5.0; s.near = 0.5; s.far = 22;
+// el volumen cubre tambien los muebles del fondo, no solo a K-7: justo lo
+// que ocupan, porque estirarlo de mas reparte los mismos texels en mas area
+s.left = -5.0; s.right = 4.0; s.top = 5.0; s.bottom = -4.0; s.near = 0.5; s.far = 18;
 scene.add(key);
 
 const fill = new THREE.DirectionalLight(0xcfe0ff, 0.55);
@@ -466,7 +467,9 @@ new GLTFLoader().load('implementos.glb', (gltf) => {
   gltf.scene.traverse((o) => {
     if (!o.isMesh) return;
     o.castShadow = true;
-    o.receiveShadow = true;
+    // no reciben sombra: están detrás de K-7 y nada les cae encima, así que
+    // el muestreo PCF en sus 14 mallas no compraba nada
+    o.receiveShadow = false;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of mats) {
       // misma cáscara invertida que en el robot: solo se ve por delante

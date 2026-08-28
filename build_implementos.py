@@ -116,8 +116,10 @@ def material(nombre, color, emision, contorno=False):
     bsdf.inputs["Metallic"].default_value = 0.0
     bsdf.inputs["Emission Color"].default_value = (*emision, 1.0)
     bsdf.inputs["Emission Strength"].default_value = 1.0
-    if contorno:
-        m.use_backface_culling = True   # clave: solo se ve la silueta
+    # Sin esto Blender exporta doubleSided y three.js sombrea tambien las
+    # caras internas, que nunca se ven: son solidos cerrados. En el contorno
+    # ademas es lo que deja ver solo la silueta.
+    m.use_backface_culling = True
     m.diffuse_color = (*color, 1.0)
     return m
 
