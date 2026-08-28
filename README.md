@@ -11,12 +11,15 @@ docs/
   robot.glb             lo que carga el visor: 1 armature + 2 mallas + Idle
   robot_rigged.glb      solo el modelo 1; es la fuente del rig
   implementos.glb       mesa, silla y tablero del fondo de la charla
+  bocas.glb             las cuatro bocas de K-7
   vendor/three/         three.js 0.169 (sin CDN)
 
 rig_cubehead.py         riggea el CubeHead y genera docs/robot.glb
 build_implementos.py    prepara los muebles y genera docs/implementos.glb
+build_bocas.py          quita la sonrisa soldada y genera docs/bocas.glb
 robot_cubehead_solo.blend   piezas del modelo 2, sin rig
 ImplementosFondo.blend      mesa, silla y tablero en bruto
+bocas.blend                 las cuatro bocas en bruto
 ```
 
 ## El fondo de la charla
@@ -34,6 +37,22 @@ blender -b ImplementosFondo.blend -P build_implementos.py
 El reparto se recalcula en cada encuadre (`repartirProps`): en movil el
 encuadre deja ver unas 3 unidades de ancho y en escritorio mas del doble, asi
 que con posiciones fijas los muebles o se salen de cuadro o se amontonan.
+
+## La boca de K-7
+
+El personaje traia la sonrisa incrustada en la malla, soldada al hueso `head`
+con peso rigido, asi que no podia cambiar de gesto. `build_bocas.py` se la
+quita a los dos modelos y exporta las cuatro bocas de `bocas.blend` a
+`docs/bocas.glb`: `feliz`, `abierta`, `pensando` y `sorpresa`.
+
+```bash
+blender -b -P build_bocas.py
+```
+
+En `charla.html` las bocas cuelgan del hueso `head` -siguen a la cabeza sin
+formar parte del skin- y hablar es encender una u otra al ritmo de las
+silabas. Salen normalizadas del script y cada modelo les da su sitio y su
+tamano, porque tienen la cara a distinta altura y anchura.
 
 ## Los dos modelos
 

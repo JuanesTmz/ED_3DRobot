@@ -343,6 +343,86 @@ const ground = new THREE.Mesh(
 ground.receiveShadow = true;
 scene.add(ground);
 
+/* ------------------------------------------------------- K-7 habla ------ */
+/* La boca cambia de forma: build_bocas.py le quitó a la malla la sonrisa que
+   traía soldada y dejó las cuatro bocas de bocas.blend sueltas en bocas.glb.
+   Cuelgan del hueso 'head', así que siguen a la cabeza sin formar parte del
+   skin, y hablar es encender una u otra al ritmo de las sílabas.
+
+   Encima va el gesto de cabeza y pecho. El Idle anima esos dos huesos, así
+   que el gesto no puede escribirse antes del mixer: se compone sobre lo que
+   el mixer deja, en el frame, justo antes de pintar. Por eso son
+   multiplicaciones de cuaterniones y no asignaciones. */
+
+let hCabeza = null, hPecho = null;
+let habla = 0, hablaObj = 0;      // nivel actual y objetivo: entra y sale suave
+const qGesto = new THREE.Quaternion();
+const eGesto = new THREE.Euler();
+
+/* Las bocas salen de build_bocas.py normalizadas al mismo criterio: centradas
+   en x, con el borde de arriba en 0 y a la escala en que la sonrisa mide 1.
+   El sitio y el tamaño los pone cada modelo, que tienen la cara a distinta
+   altura y anchura; estas medidas son las de la sonrisa que se les quitó, tal
+   como las imprime build_bocas.py. Van en el espacio del hueso 'head', donde
+   la y es la altura y la z apunta hacia la cara. */
+const BOCA_DE_MODELO = {
+  Modelo1: { pos: [0, 0.1883, 0.298], escala: 0.3172 },
+  Modelo2: { pos: [0, 0.2338, 0.400], escala: 0.2474 },
+};
+
+/* Factor de ancho por boca. La sonrisa salía midiendo lo mismo que la que
+   traía soldada el modelo y se leía demasiado abierta, así que se estrecha
+   solo ella; las demás se quedan con el ancho que tienen dibujado. */
+const ANCHO_DE_BOCA = { feliz: 0.85 };
+
+const bocas = {};                 // nombre -> malla
+let bocaPuesta = null;
+let bocaEnReposo = 'feliz';       // a la que vuelve cuando no habla
+
+function ponerBoca(nombre) {
+  if (bocaPuesta === nombre || !bocas[nombre]) return;
+  bocaPuesta = nombre;
+  for (const n of Object.keys(bocas)) bocas[n].visible = (n === nombre);
+}
+
+const hablando = (si) => { hablaObj = si ? 1 : 0; };
+
+function gestoDeHabla(dt) {
+  // el nivel persigue al objetivo: sin esto el gesto arranca y para de golpe
+  habla += (hablaObj - habla) * Math.min(1, dt * 10);
+  elegirBoca();
+  if (!hCabeza || habla < 0.002) return;
+
+  const t = performance.now() * 0.001, n = habla;
+  // dos frecuencias que no encajan entre sí, para que el cabeceo no se lea
+  // como un tic mecánico
+  eGesto.set(
+    (Math.sin(t * 19.0) * 0.055 + Math.sin(t * 7.3) * 0.020) * n,   // asiente
+    Math.sin(t * 4.7) * 0.045 * n,                                  // se gira
+    Math.sin(t * 6.1) * 0.026 * n                                   // ladea
+  );
+  hCabeza.quaternion.multiply(qGesto.setFromEuler(eGesto));
+
+  if (hPecho) {   // el pecho acompaña, con retardo y mucha menos amplitud
+    eGesto.set(Math.sin(t * 19.0 - 0.9) * 0.013 * n, 0, 0);
+    hPecho.quaternion.multiply(qGesto.setFromEuler(eGesto));
+  }
+
+}
+
+/* La boca va aparte del gesto: se elige aunque el nivel esté a cero, porque
+   en reposo también tiene que mostrar algo. */
+function elegirBoca() {
+  if (habla < 0.02) { ponerBoca(bocaEnReposo); return; }
+  const t = performance.now() * 0.001;
+  // sílabas: una onda rectificada abre y cierra la boca unas tres veces por
+  // segundo. El seno de dentro le mete vaivén al ritmo y el de fuera cambia
+  // el tamaño de cada sílaba; sin esos dos queda un tictac a compás
+  const silaba = Math.max(0, Math.sin(t * 17.0 + Math.sin(t * 3.1)));
+  const s = silaba * (0.55 + 0.45 * Math.sin(t * 5.3) ** 2);
+  ponerBoca(s > 0.34 ? 'abierta' : 'feliz');
+}
+
 const MESHES = ['Modelo1', 'Modelo2'];
 const parts = {};
 
@@ -412,6 +492,7 @@ function frame() {
 
 function showMesh(name) {
   for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
+  colocarBocas(name);
   for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
     b.setAttribute('aria-pressed', b.dataset.mesh === name);
 }
@@ -435,6 +516,11 @@ new GLTFLoader().load('robot.glb', (gltf) => {
   });
   aplicarPaleta(model, paleta);
   scene.add(model);
+
+  hCabeza = model.getObjectByName('head');
+  hPecho  = model.getObjectByName('chest');
+  if (!hCabeza) fail('falta el hueso head en robot.glb: K-7 no podrá hablar');
+  montarBocas();
 
   for (const n of MESHES) parts[n] = model.getObjectByName(n);
   const missing = MESHES.filter((n) => !parts[n]);
@@ -461,6 +547,41 @@ new GLTFLoader().load('robot.glb', (gltf) => {
   loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
   fail('GLTFLoader: ' + e.message);
 });
+
+/* Las bocas y el robot llegan por su cuenta y no hay orden garantizado, así
+   que montarBocas() se llama desde los dos sitios y solo actúa cuando ya
+   están las dos cosas. */
+function montarBocas() {
+  if (!hCabeza || !bocas.feliz || bocas.feliz.parent === hCabeza) return;
+  for (const n of Object.keys(bocas)) hCabeza.add(bocas[n]);
+  colocarBocas(MESHES.find((n) => parts[n] && parts[n].visible) || MESHES[0]);
+  // ya cuelgan del modelo: hay que repintarlas con la paleta en curso
+  aplicarPaleta(model, paleta);
+  ponerBoca(bocaEnReposo);
+}
+
+// cada modelo tiene la cara a distinta altura y anchura
+function colocarBocas(nombreMalla) {
+  const m = BOCA_DE_MODELO[nombreMalla];
+  if (!m) return;
+  for (const n of Object.keys(bocas)) {
+    bocas[n].position.set(...m.pos);
+    bocas[n].scale.set(m.escala * (ANCHO_DE_BOCA[n] ?? 1), m.escala, m.escala);
+  }
+}
+
+new GLTFLoader().load('bocas.glb', (gltf) => {
+  for (const n of ['feliz', 'abierta', 'pensando', 'sorpresa']) {
+    const ob = gltf.scene.getObjectByName(n);
+    if (!ob) { fail('falta la boca ' + n + ' en bocas.glb'); continue; }
+    ob.visible = false;
+    ob.castShadow = false;      // son planas y van pegadas a la cara
+    ob.receiveShadow = false;
+    ob.frustumCulled = false;   // cuelgan de un hueso: su caja no se recalcula
+    bocas[n] = ob;
+  }
+  montarBocas();
+}, undefined, (e) => fail('bocas.glb: ' + e.message));
 
 // el fondo se carga aparte y no bloquea el arranque de la charla
 new GLTFLoader().load('implementos.glb', (gltf) => {
@@ -504,7 +625,9 @@ addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop(() => {
-  if (mixer) mixer.update(clock.getDelta());
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(dt);
+  gestoDeHabla(dt);
   const t = performance.now() * 0.0004;
   // respiración mínima de cámara: la escena nunca queda del todo quieta
   camera.position.x += Math.sin(t) * 0.00035;
@@ -729,6 +852,7 @@ function typewrite(html, done) {
   const step = () => {
     if (i >= tokens.length) {
       clearInterval(typing);
+      hablando(false);
       elText.innerHTML = html;
       if (reveal) reveal();
       return;
@@ -757,6 +881,8 @@ function clearUI() {
   elForm.className = '';
   elNext.classList.remove('on');
   clearInterval(typing);
+  hablando(false);
+  bocaEnReposo = 'feliz';
   reveal = null;
   waiting = false;
 }
@@ -794,7 +920,12 @@ function next() {
   pending = full;
   pendingWho = quien;
 
+  // en pantalla siempre está K-7: cuando la que habla es la profe Vero, se
+  // queda quieto escuchando
+  hablando(quien === K);
+
   typewrite(full, () => {
+    bocaEnReposo = (node.input || node.options) ? 'pensando' : 'feliz';
     if (node.input) {
       campoActivo = node.input;
       elEntry.placeholder = node.placeholder || 'Escriba aquí su respuesta…';
@@ -832,6 +963,7 @@ function advance() {
   if (elText.querySelector('.caret')) {
     // primer clic: completa el texto y muestra lo que tocara mostrar
     clearInterval(typing);
+    hablando(false);
     elText.innerHTML = full;
     if (reveal) reveal();
     return;
