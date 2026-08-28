@@ -323,7 +323,8 @@ key.shadow.mapSize.set(2048, 2048);
 key.shadow.radius = 3;
 key.shadow.bias = -0.0012;
 const s = key.shadow.camera;
-s.left = -1.8; s.right = 1.8; s.top = 2.6; s.bottom = -1.8; s.near = 0.5; s.far = 14;
+// el volumen cubre tambien los muebles del fondo, no solo a K-7
+s.left = -6.0; s.right = 6.0; s.top = 6.0; s.bottom = -5.0; s.near = 0.5; s.far = 22;
 scene.add(key);
 
 const fill = new THREE.DirectionalLight(0xcfe0ff, 0.55);
@@ -335,7 +336,7 @@ rim.position.set(0, 2.4, -4.0);
 scene.add(rim);
 
 const ground = new THREE.Mesh(
-  new THREE.CircleGeometry(3.4, 64).rotateX(-Math.PI / 2),
+  new THREE.CircleGeometry(6.5, 64).rotateX(-Math.PI / 2),
   new THREE.ShadowMaterial({ opacity: 0.20 })
 );
 ground.receiveShadow = true;
@@ -359,6 +360,40 @@ const barEl     = document.querySelector('.bar i');
 const CENTER = new THREE.Vector3();   // centro real del modelo
 let modelRadius = 1;
 
+/* ------------------------------------------------------ muebles del fondo */
+/* Los tres implementos salen de ImplementosFondo.blend con acabado de boceto:
+   relleno blanco hueso y contorno oscuro horneado en la malla. Se reparten
+   detrás de K-7, y su separación se recalcula en cada encuadre: en móvil el
+   encuadre deja ver unas 3 unidades de ancho y en escritorio más del doble,
+   así que con posiciones fijas o se salen de cuadro o se amontonan. */
+
+const props = new THREE.Group();
+props.visible = false;
+scene.add(props);
+
+// x se multiplica por la separación que quepa en pantalla; el resto es fijo
+const MUEBLES = [
+  { pieza: 'Tablero', x:  0.00, y: 0.62, z: -3.10, rot:   0, fijo: true },
+  { pieza: 'Mesa',    x: -1.32, y: 0,    z: -1.55, rot:  18 },
+  { pieza: 'Silla',   x: -1.94, y: 0,    z: -2.18, rot:  18 },
+  { pieza: 'Mesa',    x:  1.46, y: 0,    z: -1.20, rot: -22 },
+  { pieza: 'Silla',   x:  2.10, y: 0,    z: -1.85, rot: -22 },
+  { pieza: 'Mesa',    x: -2.95, y: 0,    z: -3.30, rot:  12 },
+  { pieza: 'Silla',   x: -3.55, y: 0,    z: -3.85, rot:  12 },
+];
+
+function repartirProps() {
+  if (!props.children.length) return;
+  const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  // ancho visible a la profundidad media de los muebles (~1.8 detrás de K-7)
+  const dist = camera.position.distanceTo(TARGET) + 1.8;
+  const ancho = 2 * dist * Math.tan(halfFov) * camera.aspect;
+  const sep = THREE.MathUtils.clamp(ancho / 5.6, 0.66, 1.2);
+  for (const ob of props.children)
+    ob.position.x = ob.userData.x * (ob.userData.fijo ? 1 : sep);
+  props.visible = true;
+}
+
 // la caja de diálogo tapa el tercio inferior: el personaje debe caber entero
 // en la banda superior, así que encuadro contra esa fracción de la pantalla
 function frame() {
@@ -371,6 +406,7 @@ function frame() {
   TARGET.y -= visibleH * (1 - usable) * 0.5;
   camera.position.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
   camera.lookAt(TARGET);
+  repartirProps();
 }
 
 function showMesh(name) {
@@ -424,6 +460,35 @@ new GLTFLoader().load('robot.glb', (gltf) => {
   loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
   fail('GLTFLoader: ' + e.message);
 });
+
+// el fondo se carga aparte y no bloquea el arranque de la charla
+new GLTFLoader().load('implementos.glb', (gltf) => {
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      // misma cáscara invertida que en el robot: solo se ve por delante
+      if (/outline/i.test(m.name)) {
+        m.side = THREE.FrontSide;
+        m.polygonOffset = true;
+        m.polygonOffsetFactor = 1;
+      }
+    }
+  });
+
+  for (const m of MUEBLES) {
+    const base = gltf.scene.getObjectByName(m.pieza);
+    if (!base) { fail('falta ' + m.pieza + ' en implementos.glb'); continue; }
+    const ob = base.clone();       // el clon comparte geometría y material
+    ob.position.set(m.x, m.y, m.z);
+    ob.rotation.set(0, THREE.MathUtils.degToRad(m.rot), 0);
+    ob.userData = { x: m.x, fijo: !!m.fijo };
+    props.add(ob);
+  }
+  repartirProps();
+}, undefined, (e) => fail('implementos.glb: ' + e.message));
 
 for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
   b.addEventListener('click', () => showMesh(b.dataset.mesh));

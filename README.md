@@ -7,13 +7,33 @@ Robot low-poly riggeado y animado, con un visor web hecho en three.js.
 ```
 docs/
   index.html            visor
+  charla.html           la escena de conversacion con K-7
   robot.glb             lo que carga el visor: 1 armature + 2 mallas + Idle
   robot_rigged.glb      solo el modelo 1; es la fuente del rig
+  implementos.glb       mesa, silla y tablero del fondo de la charla
   vendor/three/         three.js 0.169 (sin CDN)
 
 rig_cubehead.py         riggea el CubeHead y genera docs/robot.glb
+build_implementos.py    prepara los muebles y genera docs/implementos.glb
 robot_cubehead_solo.blend   piezas del modelo 2, sin rig
+ImplementosFondo.blend      mesa, silla y tablero en bruto
 ```
+
+## El fondo de la charla
+
+`charla.html` decora el fondo con tres muebles sacados de
+`ImplementosFondo.blend`. `build_implementos.py` los junta en tres mallas
+(`Mesa`, `Silla`, `Tablero`), las normaliza a la escala de K-7 y les hornea el
+acabado de boceto: relleno blanco hueso y contorno oscuro por cascara
+invertida, la misma tecnica que usa el personaje.
+
+```bash
+blender -b ImplementosFondo.blend -P build_implementos.py
+```
+
+El reparto se recalcula en cada encuadre (`repartirProps`): en movil el
+encuadre deja ver unas 3 unidades de ancho y en escritorio mas del doble, asi
+que con posiciones fijas los muebles o se salen de cuadro o se amontonan.
 
 ## Los dos modelos
 
