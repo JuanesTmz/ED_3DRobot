@@ -28,6 +28,7 @@ Salidas: docs/robot.glb (sin la sonrisa) y docs/bocas.glb (las cuatro bocas)
 """
 
 import bpy
+import bmesh
 import mathutils
 import os
 
@@ -144,6 +145,76 @@ def sonrisa(ob):
             set().union(set(), *(idx for es_tinta, idx in boca if es_tinta)))
 
 
+def cara_frontal(ob):
+    """El plano de la cara: el trozo mas grande de caras que miran al frente y
+    cuelgan del hueso 'head'."""
+    me = ob.data
+    planos = {}
+    for p in me.polygons:
+        if p.normal.y > -0.9 or not de_la_cara(ob, p.vertices):
+            continue
+        planos.setdefault(round(p.center.y, 3), []).append(p)
+    if not planos:
+        return None, []
+    y = max(planos, key=lambda k: sum(p.area for p in planos[k]))
+    return y, planos[y]
+
+
+def rendijas(ob, caras):
+    """Las baldosas que le faltan a ese plano.
+
+    El CubeHead tiene la cara hecha de baldosas y le quitaron las que quedaban
+    tapadas por otras piezas. Las de la boca las tapaba la sonrisa vieja: sin
+    ella se ve el hueco. Se parte el plano por las aristas de las baldosas que
+    si estan y se mira que celda queda sin cubrir."""
+    me = ob.data
+    puestas = []
+    for p in caras:
+        co = [me.vertices[i].co for i in p.vertices]
+        puestas.append((min(c.x for c in co), max(c.x for c in co),
+                        min(c.z for c in co), max(c.z for c in co), p.material_index))
+    xs = sorted({v for c in puestas for v in c[:2]})
+    zs = sorted({v for c in puestas for v in c[2:4]})
+
+    huecos, llenas = [], []
+    for x0, x1 in zip(xs, xs[1:]):
+        for z0, z1 in zip(zs, zs[1:]):
+            cx, cz = (x0 + x1) / 2, (z0 + z1) / 2
+            tapa = next((c for c in puestas
+                         if c[0] <= cx <= c[1] and c[2] <= cz <= c[3]), None)
+            (llenas if tapa else huecos).append(
+                (cx, cz, tapa[4]) if tapa else (x0, x1, z0, z1, cx, cz))
+
+    # cada hueco se pinta como la baldosa mas cercana de su misma fila; en un
+    # empate manda la de la izquierda, que es como sigue la diagonal de la cara
+    faltan = []
+    for x0, x1, z0, z1, cx, cz in huecos:
+        fila = [c for c in llenas if abs(c[1] - cz) < 1e-6] or llenas
+        if not fila:
+            continue
+        faltan.append((x0, x1, z0, z1, min(fila, key=lambda c: (abs(c[0] - cx), c[0]))[2]))
+    return faltan
+
+
+def poner_baldosas(ob, y, faltan):
+    """Cierra los huecos con un cuadro por hueco, mirando al frente y con todo
+    el peso en el hueso 'head', como la cara que los rodea."""
+    me = ob.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    peso = bm.verts.layers.deform.verify()
+    hueso = ob.vertex_groups["head"].index
+    for x0, x1, z0, z1, mat in faltan:
+        vs = [bm.verts.new((x, y, z))
+              for x, z in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
+        for v in vs:
+            v[peso][hueso] = 1.0
+        bm.faces.new(vs).material_index = mat
+    bm.normal_update()
+    bm.to_mesh(me)
+    bm.free()
+
+
 def quitar_sonrisas():
     limpiar()
     bpy.ops.import_scene.gltf(filepath=ROBOT)
@@ -172,6 +243,18 @@ def quitar_sonrisas():
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.delete(type="VERT")
         bpy.ops.object.mode_set(mode="OBJECT")
+
+    print("  -- rendijas de la cara --")
+    for ob in mallas:
+        y, caras = cara_frontal(ob)
+        if y is None:
+            continue
+        faltan = rendijas(ob, caras)
+        if not faltan:
+            print(f"     {ob.name}: la cara ya esta entera")
+            continue
+        poner_baldosas(ob, y, faltan)
+        print(f"     {ob.name}: {len(faltan)} baldosas puestas en y={y:.3f}")
 
     for ob in bpy.data.objects:
         ob.select_set(ob is arm or ob in mallas)

@@ -43,7 +43,9 @@ que con posiciones fijas los muebles o se salen de cuadro o se amontonan.
 El personaje traia la sonrisa incrustada en la malla, soldada al hueso `head`
 con peso rigido, asi que no podia cambiar de gesto. `build_bocas.py` se la
 quita a los dos modelos -relleno y cascara de contorno, que si se queda deja
-la boca vieja dibujada en hueco- y exporta las cuatro bocas de `bocas.blend` a
+la boca vieja dibujada en hueco- y le pone a la cara del CubeHead las
+baldosas que le faltaban detras de ella, que sin la sonrisa se veian como
+rendijas. Luego exporta las cuatro bocas de `bocas.blend` a
 `docs/bocas.glb`: `feliz`, `abierta`, `pensando` y `sorpresa`.
 
 ```bash
