@@ -223,6 +223,22 @@ let model = null, mixer = null, action = null, skeletonHelper = null;
 const parts = {};
 const clock = new THREE.Clock();
 
+// La boca ya no va en la malla: build_bocas.py le quito a los dos modelos la
+// sonrisa que traian soldada al hueso 'head', con su cascara de contorno, y
+// dejo las cuatro bocas sueltas en bocas.glb. Aqui no habla nadie, asi que
+// basta con la de reposo colgada del mismo hueso: sigue a la cabeza sin
+// formar parte del skin.
+// Sitio y tamano los pone cada modelo, que tienen la cara a distinta altura y
+// anchura; son las medidas de la sonrisa que se les quito.
+const BOCA_DE_MODELO = {
+  Modelo1: { pos: [0, 0.1883, 0.298], escala: 0.3172 },
+  Modelo2: { pos: [0, 0.2338, 0.400], escala: 0.2474 },
+};
+// la sonrisa esta dibujada del ancho de la vieja y se leia demasiado abierta
+const ANCHO = 0.85;
+
+let boca = null, hCabeza = null;
+
 const loaderEl = document.getElementById('loader');
 const loaderTxt = document.getElementById('loader-txt');
 const barEl = document.querySelector('.bar i');
@@ -259,8 +275,34 @@ function resetView() {
 
 function showMesh(name) {
   for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
+  colocarBoca(name);
   for (const b of modelBtns) b.setAttribute('aria-pressed', b.dataset.mesh === name);
 }
+
+function colocarBoca(nombreMalla) {
+  const m = BOCA_DE_MODELO[nombreMalla];
+  if (!boca || !m) return;
+  boca.position.set(...m.pos);
+  boca.scale.set(m.escala * ANCHO, m.escala, m.escala);
+}
+
+// la boca y el robot llegan por su cuenta y sin orden garantizado, asi que
+// esto se llama desde los dos sitios y solo actua cuando ya estan los dos
+function montarBoca() {
+  if (!boca || !hCabeza || boca.parent === hCabeza) return;
+  hCabeza.add(boca);
+  colocarBoca(MESHES.find((n) => parts[n] && parts[n].visible) || MESHES[0]);
+  aplicarPaleta(model, paleta);   // ya cuelga del modelo: hay que pintarla
+}
+
+new GLTFLoader().load('bocas.glb', (gltf) => {
+  boca = gltf.scene.getObjectByName('feliz');
+  if (!boca) { fail('falta la boca feliz en bocas.glb'); return; }
+  boca.castShadow = false;      // es plana y va pegada a la cara
+  boca.receiveShadow = false;
+  boca.frustumCulled = false;   // cuelga de un hueso: su caja no se recalcula
+  montarBoca();
+}, undefined, (e) => fail('bocas.glb: ' + e.message));
 
 new GLTFLoader().load(
   'robot.glb',
@@ -291,6 +333,10 @@ new GLTFLoader().load(
     for (const n of MESHES) parts[n] = model.getObjectByName(n);
     const missing = MESHES.filter((n) => !parts[n]);
     if (missing.length) fail('faltan mallas en robot.glb: ' + missing.join(', '));
+
+    hCabeza = model.getObjectByName('head');
+    if (!hCabeza) fail('falta el hueso head en robot.glb: K-7 se queda sin boca');
+    montarBoca();
 
     if (gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);

@@ -42,12 +42,16 @@ que con posiciones fijas los muebles o se salen de cuadro o se amontonan.
 
 El personaje traia la sonrisa incrustada en la malla, soldada al hueso `head`
 con peso rigido, asi que no podia cambiar de gesto. `build_bocas.py` se la
-quita a los dos modelos y exporta las cuatro bocas de `bocas.blend` a
+quita a los dos modelos -relleno y cascara de contorno, que si se queda deja
+la boca vieja dibujada en hueco- y exporta las cuatro bocas de `bocas.blend` a
 `docs/bocas.glb`: `feliz`, `abierta`, `pensando` y `sorpresa`.
 
 ```bash
 blender -b -P build_bocas.py
 ```
+
+El visor tambien la usa: `index.html` cuelga la boca de reposo del mismo
+hueso, asi que los dos modelos tienen boca antes de entrar a la charla.
 
 En `charla.html` las bocas cuelgan del hueso `head` -siguen a la cabeza sin
 formar parte del skin- y hablar es encender una u otra al ritmo de las

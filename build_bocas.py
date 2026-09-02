@@ -4,15 +4,18 @@ Prepara las bocas intercambiables de K-7 y le quita la sonrisa soldada.
     blender -b -P build_bocas.py
 
 El personaje venia con la sonrisa incrustada en la malla: cinco cajas soldadas
-al hueso 'head' con peso rigido. Para que pueda cambiar de gesto hay que
-sacarla de ahi y sustituirla por mallas sueltas que se enciendan y apaguen.
+al hueso 'head' con peso rigido, cada una con su cascara de contorno. Para que
+pueda cambiar de gesto hay que sacarla de ahi y sustituirla por mallas sueltas
+que se enciendan y apaguen.
 
 Este script hace las dos mitades:
 
-  1. Abre docs/robot.glb y borra la sonrisa de los dos modelos. La encuentra
-     por material de tinta, por delante del plano de la cara y por debajo de
-     las gafas: salen 60 caras y 120 vertices en cada uno. De paso mide donde
-     estaba, que es donde habra que colgar las bocas nuevas.
+  1. Abre docs/robot.glb y borra la sonrisa de los dos modelos, relleno y
+     cascara: si se queda la cascara, la boca vieja sigue viendose como cinco
+     rectangulos huecos. Las encuentra por piezas sueltas de tinta y de
+     contorno que van delante del plano de la cara, cuelgan del hueso 'head' y
+     quedan por debajo de las gafas. De paso mide donde estaba, que es donde
+     habra que colgar las bocas nuevas.
   2. Abre bocas.blend y exporta sus cuatro bocas a docs/bocas.glb, todas
      normalizadas al mismo criterio: centradas en x, con el borde de arriba
      en z=0 y a la escala en que la sonrisa mide 1. Asi en three.js basta una
@@ -51,33 +54,94 @@ def limpiar():
 
 # --------------------------------------------- 1. quitar la sonrisa vieja ---
 
-def sonrisa(ob):
-    """Los cinco segmentos: tinta, delante de la cara, por debajo de las
-    gafas. Gafas y sonrisa comparten material, las separa el hueco en altura."""
+def piezas(ob, mats):
+    """Agrupa en trozos sueltos las caras de esos materiales.
+
+    Suelda por posicion: el GLB trae cada caja con los vertices partidos por
+    cara, asi que la conectividad de la malla, por si sola, dejaria cada caja
+    en seis cuadrados sueltos en vez de en una pieza."""
     me = ob.data
-    tinta = [i for i, m in enumerate(me.materials) if "navy" in m.name.lower()]
-    caras = [p for p in me.polygons
-             if p.material_index in tinta and p.center.y < -0.26 and p.center.z > 1.0]
-    if not caras:
-        return set(), None
-    caras.sort(key=lambda p: p.center.z)
+    caras = [p for p in me.polygons if p.material_index in mats]
+    padre = {v: v for p in caras for v in p.vertices}
 
-    grupo = [caras[0]]
-    for p in caras[1:]:
-        if p.center.z - grupo[-1].center.z > 0.04:
-            break
-        grupo.append(p)
+    def raiz(a):
+        while padre[a] != a:
+            padre[a] = padre[padre[a]]
+            a = padre[a]
+        return a
 
-    idx = set()
-    for p in grupo:
-        idx.update(p.vertices)
-    co = [me.vertices[i].co for i in idx]
-    caja = (
-        (min(c.x for c in co), max(c.x for c in co)),
-        (min(c.y for c in co), max(c.y for c in co)),
-        (min(c.z for c in co), max(c.z for c in co)),
-    )
-    return idx, caja
+    def unir(a, b):
+        ra, rb = raiz(a), raiz(b)
+        if ra != rb:
+            padre[ra] = rb
+
+    soldado = {}
+    for p in caras:
+        for v in p.vertices:
+            k = tuple(round(c, 5) for c in me.vertices[v].co)
+            if k in soldado:
+                unir(v, soldado[k])
+            else:
+                soldado[k] = v
+            unir(p.vertices[0], v)
+
+    grupos = {}
+    for p in caras:
+        grupos.setdefault(raiz(p.vertices[0]), set()).update(p.vertices)
+    return list(grupos.values())
+
+
+def caja(ob, idx):
+    co = [ob.data.vertices[i].co for i in idx]
+    return ((min(c.x for c in co), max(c.x for c in co)),
+            (min(c.y for c in co), max(c.y for c in co)),
+            (min(c.z for c in co), max(c.z for c in co)))
+
+
+def de_la_cara(ob, idx):
+    """Delante del plano de la cara y colgando del hueso 'head'."""
+    if caja(ob, idx)[1][1] > -0.2:
+        return False
+    for i in idx:
+        g = ob.data.vertices[i].groups
+        if not g:
+            return False
+        if ob.vertex_groups[max(g, key=lambda x: x.weight).group].name != "head":
+            return False
+    return True
+
+
+def sonrisa(ob):
+    """La sonrisa vieja: cinco cajas de tinta, cada una con su cascara de
+    contorno. Sin la cascara la boca sigue ahi, hueca: se le ve el borde.
+
+    Las gafas comparten material y sitio con ella, asi que lo que las separa es
+    la altura. El borde de abajo del relleno de las gafas -lo unico de tinta
+    que queda delante de la cara- marca el limite: por debajo solo esta la
+    boca. Se le descuentan 3 cm de escala, que es lo que la cascara del
+    contorno sobresale de su relleno.
+
+    Devuelve los vertices a borrar y los del relleno, que son los que dan la
+    medida buena de donde estaba."""
+    me = ob.data
+    tinta = {i for i, m in enumerate(me.materials) if "navy" in m.name.lower()}
+    contorno = {i for i, m in enumerate(me.materials) if "outline" in m.name.lower()}
+
+    delante = [(es_tinta, idx)
+               for mats, es_tinta in ((tinta, True), (contorno, False))
+               for idx in piezas(ob, mats) if de_la_cara(ob, idx)]
+
+    gafas = [caja(ob, idx)[2][0] for es_tinta, idx in delante if es_tinta]
+    if not gafas:
+        return set(), set()
+    limite = max(gafas) - 0.03
+
+    boca = [(es_tinta, idx) for es_tinta, idx in delante
+            if caja(ob, idx)[2][1] < limite]
+    if not boca:
+        return set(), set()
+    return (set().union(*(idx for _, idx in boca)),
+            set().union(set(), *(idx for es_tinta, idx in boca if es_tinta)))
 
 
 def quitar_sonrisas():
@@ -88,15 +152,17 @@ def quitar_sonrisas():
 
     print("  -- sonrisa vieja --")
     for ob in mallas:
-        idx, caja = sonrisa(ob)
+        idx, relleno = sonrisa(ob)
         if not idx:
             print(f"     {ob.name}: ya no la tiene")
             continue
-        (x0, x1), (y0, y1), (z0, z1) = caja
         # el punto del que cuelgan las bocas nuevas: centro en x, labio de
-        # arriba en z, y el plano en que se dibuja la cara
-        print(f"     {ob.name}: {len(idx)} verts | ancho {x1 - x0:.4f} | "
-              f"labio arriba z={z1:.4f} | cara y={y0:.4f}")
+        # arriba en z, y el plano en que se dibuja la cara. Lo mide el relleno;
+        # si ya no esta, la cascara del contorno lo da un pelo mas grande
+        (x0, x1), (y0, y1), (z0, z1) = caja(ob, relleno or idx)
+        print(f"     {ob.name}: {len(idx)} verts "
+              f"({'relleno y cascara' if relleno else 'solo la cascara'}) | "
+              f"ancho {x1 - x0:.4f} | labio arriba z={z1:.4f} | cara y={y0:.4f}")
         bpy.context.view_layer.objects.active = ob
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.select_all(action="DESELECT")
