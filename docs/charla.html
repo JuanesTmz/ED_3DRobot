@@ -808,7 +808,7 @@ const elEmpty  = document.getElementById('log-empty');
 
 let queue = [];       // nodos pendientes (el guion + lo que se inserte)
 let campoActivo = null;  // campo de `dicho` que alimenta la pregunta abierta en curso
-let typing = null;    // temporizador de la máquina de escribir
+let typing = null;    // fotograma pedido por la máquina de escribir
 let full = '';        // texto completo del nodo en curso
 let waiting = false;  // esperando clic para avanzar
 let reveal = null;    // qué mostrar cuando el texto termina (opciones, input…)
@@ -842,33 +842,61 @@ function flushPending() {
   pending = null;
 }
 
+const RITMO = 17;     // ms por letra
+
 // escribe carácter a carácter respetando las etiquetas <b>/<i>
 function typewrite(html, done) {
-  clearInterval(typing);
+  cancelAnimationFrame(typing);
   // el mismo cierre se usa al terminar y al saltar el texto con un clic
   reveal = () => { reveal = null; done(); };
   const tokens = html.match(/<\/?[bi]>|[\s\S]/g) || [];
+
+  // El texto y el cursor van en dos nodos fijos. Reescribir #text entero en
+  // cada letra volvía a parsear la caja y creaba un cursor nuevo -con su
+  // animación de parpadeo- sesenta veces por segundo.
+  elText.textContent = '';
+  const vista  = document.createElement('span');
+  const cursor = document.createElement('span');
+  cursor.className = 'caret';
+  elText.append(vista, cursor);
+
   let i = 0;
+  let texto = '';             // se acumula; antes se rehacía entero cada letra
+  let cierre = '';            // etiquetas abiertas, cerradas para que el HTML valga
+  let sobra = RITMO;          // arranca con la primera letra ya cumplida
+  let antes = performance.now();
+
+  /* Va al ritmo del pintado, no en un temporizador aparte: así se toca el DOM
+     una vez por fotograma y no dos veces entre pintado y pintado. El reloj
+     sigue siendo el de antes -una letra cada RITMO- y se le pone tope para que
+     al volver de un parón no vuelque medio párrafo de golpe. */
   const step = () => {
+    const ahora = performance.now();
+    sobra = Math.min(sobra + (ahora - antes), RITMO * 4);
+    antes = ahora;
+
+    let pinta = false;
+    while (sobra >= RITMO && i < tokens.length) {
+      sobra -= RITMO;
+      const tk = tokens[i++];
+      texto += tk;
+      // una etiqueta no pinta nada por sí sola: se apunta y no se toca el DOM
+      if (tk[0] === '<') {
+        if (tk[1] === '/') cierre = cierre.replace(tk, '');
+        else cierre = '</' + tk[1] + '>' + cierre;
+      } else pinta = true;
+    }
+    if (pinta) vista.innerHTML = texto + cierre;
+
     if (i >= tokens.length) {
-      clearInterval(typing);
       hablando(false);
       elText.innerHTML = html;
       if (reveal) reveal();
       return;
     }
-    i++;
-    // cierra las etiquetas abiertas para que el HTML parcial sea válido
-    let partial = tokens.slice(0, i).join('');
-    for (const tag of ['b', 'i']) {
-      const open = (partial.match(new RegExp(`<${tag}>`, 'g')) || []).length;
-      const close = (partial.match(new RegExp(`</${tag}>`, 'g')) || []).length;
-      if (open > close) partial += `</${tag}>`;
-    }
-    elText.innerHTML = partial + '<span class="caret"></span>';
+    typing = requestAnimationFrame(step);
   };
-  step();                       // arranca sin esperar al primer tick
-  typing = setInterval(step, 17);
+  step();                       // arranca sin esperar al primer fotograma
 }
 
 function nameOf(node) {
@@ -880,7 +908,7 @@ function clearUI() {
   elChoice.innerHTML = '';
   elForm.className = '';
   elNext.classList.remove('on');
-  clearInterval(typing);
+  cancelAnimationFrame(typing);
   hablando(false);
   bocaEnReposo = 'feliz';
   reveal = null;
@@ -962,7 +990,7 @@ function advance() {
   if (elChoice.classList.contains('on') || elForm.classList.contains('on')) return;
   if (elText.querySelector('.caret')) {
     // primer clic: completa el texto y muestra lo que tocara mostrar
-    clearInterval(typing);
+    cancelAnimationFrame(typing);
     hablando(false);
     elText.innerHTML = full;
     if (reveal) reveal();
