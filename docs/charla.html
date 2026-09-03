@@ -220,6 +220,14 @@
   }
   @media (max-width:560px){
     #text{min-height:calc(4 * 1.5em)}
+    /* de frente contra #log-btn (arriba a la izquierda): sin esto los seis
+       botones en una sola fila se le montan encima */
+    #avatars{
+      max-width:calc(100vw - 96px);
+      flex-wrap:wrap;justify-content:flex-end;row-gap:6px;
+    }
+    #avatars button{padding:6px 10px;font-size:11px}
+    #avatars button[data-pal]{padding:6px 8px}
   }
 </style>
 </head>
@@ -242,6 +250,7 @@
   <a id="back" href="./index.html">← visor 3D</a>
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
   <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+  <button data-mesh="Modelo3" aria-pressed="false">Modelo 3</button>
   <span class="sep"></span>
   <button data-pal="uno" aria-pressed="true" title="Paleta 1">
     <span class="sw"><i style="--c:#f48dbd"></i><i style="--c:#cae376"></i><i style="--c:#a0cbdf"></i><i style="--c:#fbe05d"></i></span>
@@ -368,6 +377,12 @@ const eGesto = new THREE.Euler();
 const BOCA_DE_MODELO = {
   Modelo1: { pos: [0, 0.1883, 0.298], escala: 0.3172 },
   Modelo2: { pos: [0, 0.2338, 0.400], escala: 0.2474 },
+  // Modelo3 lleva el cubo volteado y la carita bajada, porque la esquina
+  // del cubo le caia encima. La z ya no es la del plano de la cara: el
+  // cubo girado no ofrece un plano de frente sino una arista, asi que la
+  // boca se adelanta hasta librarla. Lo mide build_modelo3.py y lo
+  // imprime al acabar.
+  Modelo3: { pos: [0.0, 0.1389, 0.4352], escala: 0.2474 },
 };
 
 /* Factor de ancho por boca. La sonrisa salía midiendo lo mismo que la que
@@ -423,7 +438,7 @@ function elegirBoca() {
   ponerBoca(s > 0.34 ? 'abierta' : 'feliz');
 }
 
-const MESHES = ['Modelo1', 'Modelo2'];
+const MESHES = ['Modelo1', 'Modelo2', 'Modelo3'];
 const parts = {};
 
 // misma eleccion de paleta que en el visor: se comparte por localStorage
@@ -475,16 +490,27 @@ function repartirProps() {
   props.visible = true;
 }
 
-// la caja de diálogo tapa el tercio inferior: el personaje debe caber entero
-// en la banda superior, así que encuadro contra esa fracción de la pantalla
+// El personaje tiene que caber en el hueco libre entre la barra de arriba
+// (avatares) y la caja de dialogo de abajo, centrado en ese hueco -no en la
+// pantalla entera-. Antes se aproximaba con una fraccion fija de la pantalla
+// (0.52/0.62 segun el alto) pensada de escritorio: en movil, angosto, la
+// barra de arriba se parte en dos lineas y la caja mide menos, asi que esa
+// fraccion se quedaba corta y el personaje quedaba con la cabeza pegada a
+// los botones. Mide los dos huecos de verdad en vez de adivinarlos.
 function frame() {
-  const usable = innerHeight < 620 ? 0.52 : 0.62;
+  const arribaLibre = document.getElementById('avatars').getBoundingClientRect().bottom;
+  const abajoLibre = document.getElementById('hud').getBoundingClientRect().top;
   const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
-  const dist = modelRadius / Math.sin(halfFov) / usable * 1.34;
+
+  const zoom = THREE.MathUtils.clamp((abajoLibre - arribaLibre) / innerHeight, 0.42, 0.68);
+  const dist = modelRadius / Math.sin(halfFov) / zoom * 1.34;
   const visibleH = 2 * dist * Math.tan(halfFov);
 
+  const centroHueco = (arribaLibre + abajoLibre) / 2;
+  const bajar = (innerHeight / 2 - centroHueco) * (visibleH / innerHeight);
+
   TARGET.copy(CENTER);
-  TARGET.y -= visibleH * (1 - usable) * 0.5;
+  TARGET.y -= bajar;
   camera.position.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
   camera.lookAt(TARGET);
   repartirProps();

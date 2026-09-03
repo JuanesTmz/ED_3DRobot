@@ -95,8 +95,11 @@
   @media (max-width:560px){
     #hint{display:none}
     header{padding:16px 18px}
-    #models{top:auto;bottom:126px;right:50%;transform:translateX(50%)}
-    #palettes{top:auto;bottom:82px;right:50%;transform:translateX(50%)}
+    /* left+translateX(-50%) para centrar. width:max-content porque, fijo con
+       left+bottom+transform a la vez, Chrome encoge el shrink-to-fit por
+       debajo del ancho real y parte el texto de los botones en dos lineas */
+    #models{top:auto;bottom:126px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
+    #palettes{top:auto;bottom:82px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
   }
 </style>
 </head>
@@ -113,6 +116,7 @@
 <div id="models">
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
   <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+  <button data-mesh="Modelo3" aria-pressed="false">Modelo 3</button>
 </div>
 
 <div id="palettes">
@@ -214,16 +218,16 @@ const ground = new THREE.Mesh(
 ground.receiveShadow = true;
 scene.add(ground);
 
-// robot.glb trae las dos mallas skinneadas al MISMO armature y una sola
+// robot.glb trae las tres mallas skinneadas al MISMO armature y una sola
 // accion Idle: cambiar de modelo es solo alternar visibilidad, el rig y la
 // animacion son compartidos y no se reinician.
-const MESHES = ['Modelo1', 'Modelo2'];
+const MESHES = ['Modelo1', 'Modelo2', 'Modelo3'];
 
 let model = null, mixer = null, action = null, skeletonHelper = null;
 const parts = {};
 const clock = new THREE.Clock();
 
-// La boca ya no va en la malla: build_bocas.py le quito a los dos modelos la
+// La boca ya no va en la malla: build_bocas.py le quito a los modelos la
 // sonrisa que traian soldada al hueso 'head', con su cascara de contorno, y
 // dejo las cuatro bocas sueltas en bocas.glb. Aqui no habla nadie, asi que
 // basta con la de reposo colgada del mismo hueso: sigue a la cabeza sin
@@ -233,6 +237,12 @@ const clock = new THREE.Clock();
 const BOCA_DE_MODELO = {
   Modelo1: { pos: [0, 0.1883, 0.298], escala: 0.3172 },
   Modelo2: { pos: [0, 0.2338, 0.400], escala: 0.2474 },
+  // Modelo3 lleva el cubo volteado y la carita bajada, porque la esquina
+  // del cubo le caia encima. La z ya no es la del plano de la cara: el
+  // cubo girado no ofrece un plano de frente sino una arista, asi que la
+  // boca se adelanta hasta librarla. Lo mide build_modelo3.py y lo
+  // imprime al acabar.
+  Modelo3: { pos: [0.0, 0.1389, 0.4352], escala: 0.2474 },
 };
 // la sonrisa esta dibujada del ancho de la vieja y se leia demasiado abierta
 const ANCHO = 0.85;
@@ -349,8 +359,8 @@ new GLTFLoader().load(
     skeletonHelper.material.linewidth = 2;
     scene.add(skeletonHelper);
 
-    // encuadra con las dos mallas visibles: comparten proporciones, asi que
-    // el encuadre vale para las dos y no hay que recolocar la camara al
+    // encuadra con las tres mallas visibles: comparten proporciones, asi que
+    // el encuadre vale para todas y no hay que recolocar la camara al
     // cambiar de modelo
     aplicarPaleta(model, paleta);
 
