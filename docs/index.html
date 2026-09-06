@@ -75,6 +75,16 @@
   .sw{display:flex;gap:2px}
   .sw i{width:7px;height:14px;border-radius:2px;background:var(--c)}
 
+  #anims{
+    position:fixed;left:50%;bottom:78px;transform:translateX(-50%);
+    display:flex;gap:8px;padding:7px;border-radius:999px;z-index:5;
+    flex-wrap:wrap;justify-content:center;max-width:min(92vw,560px);
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #anims button[aria-pressed="true"]{background:var(--lime);color:#1c2436}
+
   #hint{
     position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
   }
@@ -98,8 +108,9 @@
     /* left+translateX(-50%) para centrar. width:max-content porque, fijo con
        left+bottom+transform a la vez, Chrome encoge el shrink-to-fit por
        debajo del ancho real y parte el texto de los botones en dos lineas */
-    #models{top:auto;bottom:126px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
-    #palettes{top:auto;bottom:82px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
+    #models{top:auto;bottom:174px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
+    #palettes{top:auto;bottom:130px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
+    #anims{bottom:78px}
   }
 </style>
 </head>
@@ -128,6 +139,15 @@
     <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
     Paleta 2
   </button>
+</div>
+
+<div id="anims">
+  <button data-anim="Idle"        aria-pressed="true">Reposo</button>
+  <button data-anim="K7_Pensando" aria-pressed="false">Pensando</button>
+  <button data-anim="K7_Saltito"  aria-pressed="false">Saltito</button>
+  <button data-anim="K7_Triste"   aria-pressed="false">Triste</button>
+  <button data-anim="K7_HighFive" aria-pressed="false">HighFive</button>
+  <button data-anim="K7_Caminando" aria-pressed="false">Caminando</button>
 </div>
 
 <div id="panel">
@@ -223,9 +243,34 @@ scene.add(ground);
 // animacion son compartidos y no se reinician.
 const MESHES = ['Modelo1', 'Modelo2', 'Modelo3'];
 
-let model = null, mixer = null, action = null, skeletonHelper = null;
+let model = null, mixer = null, skeletonHelper = null;
 const parts = {};
 const clock = new THREE.Clock();
+let paused = false;
+
+// Animaciones: todas las acciones se reproducen a la vez y se mezclan por
+// peso (el patron estandar de three.js para blending), asi que cambiar de
+// animacion es solo una rampa de pesos -fadeOut/fadeIn- y nunca un salto.
+const actions = {};
+let activeAction = null;
+const UNA_VEZ = new Set(['K7_Saltito', 'K7_HighFive']);   // gestos: se tocan una vez y vuelven a Reposo
+const animBtns = [];
+
+function fadeToAction(name, duration = 0.5) {
+  const next = actions[name];
+  if (!next || next === activeAction) return;
+  const prev = activeAction;
+  activeAction = next;
+
+  next.reset();
+  next.setEffectiveTimeScale(1);
+  next.setEffectiveWeight(1);
+  next.fadeIn(duration);
+  next.play();
+  if (prev) prev.fadeOut(duration);
+
+  for (const b of animBtns) b.setAttribute('aria-pressed', b.dataset.anim === name);
+}
 
 // La boca ya no va en la malla: build_bocas.py le quito a los modelos la
 // sonrisa que traian soldada al hueso 'head', con su cascara de contorno, y
@@ -350,8 +395,22 @@ new GLTFLoader().load(
 
     if (gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
-      action = mixer.clipAction(gltf.animations[0]);
-      action.play();
+      for (const clip of gltf.animations) {
+        const a = mixer.clipAction(clip);
+        if (UNA_VEZ.has(clip.name)) {
+          a.setLoop(THREE.LoopOnce);
+          a.clampWhenFinished = true;
+        }
+        a.setEffectiveWeight(clip.name === 'Idle' ? 1 : 0);
+        a.play();   // todas corren desde el arranque; el peso decide que se ve
+        actions[clip.name] = a;
+      }
+      activeAction = actions['Idle'] || null;
+
+      // los gestos de una vez vuelven solos a Reposo al terminar
+      mixer.addEventListener('finished', (e) => {
+        if (UNA_VEZ.has(e.action.getClip().name)) fadeToAction('Idle');
+      });
     }
 
     skeletonHelper = new THREE.SkeletonHelper(model);
@@ -381,6 +440,9 @@ new GLTFLoader().load(
 
 for (const b of modelBtns) b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
+animBtns.push(...document.querySelectorAll('#anims button'));
+for (const b of animBtns) b.addEventListener('click', () => fadeToAction(b.dataset.anim));
+
 const toggle = (btn, fn) => btn.addEventListener('click', () => {
   const on = btn.getAttribute('aria-pressed') !== 'true';
   btn.setAttribute('aria-pressed', on);
@@ -389,7 +451,7 @@ const toggle = (btn, fn) => btn.addEventListener('click', () => {
 
 toggle(btnPlay, (on, b) => {
   b.textContent = on ? 'Pausa' : 'Reanudar';
-  if (action) action.paused = !on;
+  paused = !on;
 });
 toggle(document.getElementById('btn-spin'), (on) => { controls.autoRotate = on; });
 toggle(btnBones, (on) => {
@@ -404,7 +466,8 @@ addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop(() => {
-  if (mixer) mixer.update(clock.getDelta());
+  const dt = clock.getDelta();
+  if (mixer && !paused) mixer.update(dt);
   controls.update();
   renderer.render(scene, camera);
 });
