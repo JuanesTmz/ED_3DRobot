@@ -85,6 +85,38 @@
   }
   #anims button[aria-pressed="true"]{background:var(--lime);color:#1c2436}
 
+  #anims-burger{display:none}
+  #anims-menu{
+    display:flex;flex-direction:column;gap:6px;
+    position:fixed;left:50%;bottom:128px;transform:translateX(-50%);
+    padding:8px;border-radius:16px;z-index:5;min-width:160px;
+    background:rgba(255,255,255,.9);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #anims-menu button{text-align:left;border-radius:10px}
+  #anims-menu[hidden]{display:none}
+  #anims-menu button[aria-pressed="true"]{background:var(--lime);color:#1c2436}
+
+  #dev{
+    position:fixed;top:18px;left:26px;z-index:7;width:230px;
+    padding:12px;border-radius:14px;font-size:12px;
+    background:rgba(255,255,255,.88);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #dev[hidden]{display:none}
+  #dev h2{margin:0 0 8px;font-size:13px}
+  #dev .dev-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  #dev select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid rgba(39,52,74,.2);flex:1}
+  #dev button{padding:6px 10px;font-size:12px;background:rgba(39,52,74,.07)}
+  #dev button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+  #dev pre{
+    background:rgba(39,52,74,.06);padding:8px;border-radius:8px;
+    white-space:pre-wrap;word-break:break-all;margin:0 0 8px;
+    font:11px/1.4 ui-monospace,monospace;max-height:160px;overflow:auto;
+  }
+
   #hint{
     position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
   }
@@ -110,7 +142,17 @@
        debajo del ancho real y parte el texto de los botones en dos lineas */
     #models{top:auto;bottom:174px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
     #palettes{top:auto;bottom:130px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
-    #anims{bottom:78px}
+    /* en movil los 6 botones de #anims no caben en una fila y quedan
+       ilegibles/imposibles de tocar: se reemplazan por una hamburguesa */
+    #anims{display:none}
+    #anims-burger{
+      display:flex;align-items:center;gap:6px;
+      position:fixed;left:50%;bottom:78px;transform:translateX(-50%);
+      padding:9px 18px;border-radius:999px;z-index:5;
+      background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+      border:1px solid rgba(39,52,74,.10);
+      box-shadow:0 6px 22px rgba(39,52,74,.13);
+    }
   }
 </style>
 </head>
@@ -139,6 +181,10 @@
     <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
     Paleta 2
   </button>
+  <button data-pal="tres" aria-pressed="false">
+    <span class="sw"><i style="--c:#d852db"></i><i style="--c:#4fc180"></i><i style="--c:#50aed8"></i><i style="--c:#ead34e"></i></span>
+    Paleta 3
+  </button>
 </div>
 
 <div id="anims">
@@ -148,6 +194,34 @@
   <button data-anim="K7_Triste"   aria-pressed="false">Triste</button>
   <button data-anim="K7_HighFive" aria-pressed="false">HighFive</button>
   <button data-anim="K7_Caminando" aria-pressed="false">Caminando</button>
+</div>
+
+<!-- version movil de #anims: los mismos botones, en menu desplegable -->
+<button id="anims-burger" aria-expanded="false" aria-controls="anims-menu">☰ Pose</button>
+<div id="anims-menu" hidden>
+  <button data-anim="Idle"        aria-pressed="true">Reposo</button>
+  <button data-anim="K7_Pensando" aria-pressed="false">Pensando</button>
+  <button data-anim="K7_Saltito"  aria-pressed="false">Saltito</button>
+  <button data-anim="K7_Triste"   aria-pressed="false">Triste</button>
+  <button data-anim="K7_HighFive" aria-pressed="false">HighFive</button>
+  <button data-anim="K7_Caminando" aria-pressed="false">Caminando</button>
+</div>
+
+<!-- panel de ajuste manual: solo con ?dev=1 en la URL -->
+<div id="dev" hidden>
+  <h2>Ajuste de hueso</h2>
+  <div class="dev-row">
+    <select id="dev-bone"></select>
+  </div>
+  <div class="dev-row">
+    <button id="dev-mode-rotate" aria-pressed="true">Rotar</button>
+    <button id="dev-mode-translate" aria-pressed="false">Mover</button>
+    <button id="dev-reset">Reiniciar</button>
+  </div>
+  <pre id="dev-readout"></pre>
+  <div class="dev-row">
+    <button id="dev-copy">Copiar valores</button>
+  </div>
 </div>
 
 <div id="panel">
@@ -173,9 +247,13 @@
 
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }        from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls }     from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { aplicarPaleta, conectarBotones } from './paleta.js';
+
+// ?dev=1 activa el panel de ajuste manual de huesos (mover/rotar con gizmo)
+const DEV = new URLSearchParams(location.search).get('dev') === '1';
 
 const errBox = document.getElementById('err');
 const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
@@ -269,16 +347,114 @@ function fadeToAction(name, duration = 0.5) {
   next.play();
   if (prev) prev.fadeOut(duration);
 
+  aplicarGesto(name);
   for (const b of animBtns) b.setAttribute('aria-pressed', b.dataset.anim === name);
 }
 
-// La boca ya no va en la malla: build_bocas.py le quito a los modelos la
-// sonrisa que traian soldada al hueso 'head', con su cascara de contorno, y
-// dejo las cuatro bocas sueltas en bocas.glb. Aqui no habla nadie, asi que
-// basta con la de reposo colgada del mismo hueso: sigue a la cabeza sin
-// formar parte del skin.
+// ---------------------------------------------------------- modo ?dev=1 ----
+// Gizmo para mover/rotar un hueso a mano y leer los numeros resultantes -el
+// mismo tipo de panel que ya se uso antes para calibrar la boca a ojo-, esta
+// vez para retocar poses del rig sin pasar por Blender.
+let transformControls = null;
+let devBone = null;
+let devBaseline = null;
+
+function setupDevMode() {
+  if (!DEV || !model || !skeletonHelper) return;
+  document.getElementById('dev').hidden = false;
+
+  // congela en la pose que se va a retocar, en su instante base (frame 0,
+  // sin la respiracion del idle superpuesta)
+  const target = actions['K7_Pensando'] ? 'K7_Pensando' : 'Idle';
+  for (const name in actions) actions[name].setEffectiveWeight(name === target ? 1 : 0);
+  activeAction = actions[target];
+  if (activeAction) { activeAction.time = 0; mixer.update(0); }
+  paused = true;
+  aplicarGesto(target);
+  for (const b of animBtns) b.setAttribute('aria-pressed', b.dataset.anim === target);
+  controls.autoRotate = false;
+  if (skeletonHelper) skeletonHelper.visible = true;
+  btnBones?.setAttribute('aria-pressed', 'true');
+
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.setSpace('local');
+  transformControls.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  transformControls.addEventListener('objectChange', updateDevReadout);
+  scene.add(transformControls.getHelper());
+
+  const boneSelect = document.getElementById('dev-bone');
+  const bones = skeletonHelper.bones.slice().sort((a, b) => a.name.localeCompare(b.name));
+  for (const b of bones) {
+    const opt = document.createElement('option');
+    opt.value = b.name;
+    opt.textContent = b.name;
+    boneSelect.appendChild(opt);
+  }
+  const startBone = bones.find((b) => b.name === 'upperarm_R') ? 'upperarm_R' : bones[0]?.name;
+  boneSelect.value = startBone;
+  selectDevBone(startBone);
+  boneSelect.addEventListener('change', () => selectDevBone(boneSelect.value));
+
+  document.getElementById('dev-mode-rotate').addEventListener('click', () => setDevGizmoMode('rotate'));
+  document.getElementById('dev-mode-translate').addEventListener('click', () => setDevGizmoMode('translate'));
+  document.getElementById('dev-copy').addEventListener('click', copyDevValues);
+  document.getElementById('dev-reset').addEventListener('click', () => {
+    if (!devBone || !devBaseline) return;
+    devBone.quaternion.copy(devBaseline.quaternion);
+    devBone.position.copy(devBaseline.position);
+    updateDevReadout();
+  });
+}
+
+function selectDevBone(name) {
+  devBone = skeletonHelper.bones.find((b) => b.name === name);
+  if (!devBone) return;
+  devBaseline = { quaternion: devBone.quaternion.clone(), position: devBone.position.clone() };
+  transformControls.attach(devBone);
+  updateDevReadout();
+}
+
+function setDevGizmoMode(mode) {
+  transformControls.setMode(mode);
+  document.getElementById('dev-mode-rotate').setAttribute('aria-pressed', String(mode === 'rotate'));
+  document.getElementById('dev-mode-translate').setAttribute('aria-pressed', String(mode === 'translate'));
+}
+
+function updateDevReadout() {
+  if (!devBone) return;
+  const q = devBone.quaternion;
+  const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+  const toDeg = (r) => (r * 180 / Math.PI).toFixed(1);
+  document.getElementById('dev-readout').textContent =
+    `hueso: ${devBone.name}\n` +
+    `quat (w,x,y,z):\n  ${q.w.toFixed(4)}, ${q.x.toFixed(4)}, ${q.y.toFixed(4)}, ${q.z.toFixed(4)}\n` +
+    `euler XYZ (grados):\n  ${toDeg(e.x)}, ${toDeg(e.y)}, ${toDeg(e.z)}\n` +
+    `posicion local:\n  ${devBone.position.x.toFixed(4)}, ${devBone.position.y.toFixed(4)}, ${devBone.position.z.toFixed(4)}`;
+}
+
+function copyDevValues() {
+  if (!devBone) return;
+  const q = devBone.quaternion;
+  const p = devBone.position;
+  const text = JSON.stringify({
+    bone: devBone.name,
+    quaternion_wxyz: [q.w, q.x, q.y, q.z],
+    position: [p.x, p.y, p.z],
+  }, null, 2);
+  const btn = document.getElementById('dev-copy');
+  const old = btn.textContent;
+  navigator.clipboard?.writeText(text)
+    .then(() => { btn.textContent = 'Copiado!'; setTimeout(() => { btn.textContent = old; }, 1200); })
+    .catch(() => { btn.textContent = 'No se pudo copiar'; setTimeout(() => { btn.textContent = old; }, 1200); });
+}
+
+// La boca y los ojos ya no van en la malla: build_bocas.py y build_ojos.py le
+// quitaron a los modelos la sonrisa y los ojos que traian soldados al hueso
+// 'head' (con su cascara de contorno) y dejaron las mallas sueltas en
+// bocas.glb y ojos.glb. Cuelgan del mismo hueso y solo una de cada juego esta
+// visible a la vez: cambiar de gesto es solo alternar visibilidad.
 // Sitio y tamano los pone cada modelo, que tienen la cara a distinta altura y
-// anchura; son las medidas de la sonrisa que se les quito.
+// anchura; son las medidas de la sonrisa/ojos que se les quito.
 const BOCA_DE_MODELO = {
   Modelo1: { pos: [0, 0.1883, 0.298], escala: 0.3172 },
   Modelo2: { pos: [0, 0.2338, 0.400], escala: 0.2474 },
@@ -292,7 +468,45 @@ const BOCA_DE_MODELO = {
 // la sonrisa esta dibujada del ancho de la vieja y se leia demasiado abierta
 const ANCHO = 0.85;
 
-let boca = null, hCabeza = null;
+const OJOS_DE_MODELO = {
+  Modelo1: { pos: [0, 0.4670, 0.3100], escala: 0.5294 },
+  Modelo2: { pos: [0, 0.5218, 0.4202], escala: 0.4129 },
+  Modelo3: { pos: [0, 0.3858, 0.4722], escala: 0.4129 },
+};
+
+// gesto de cada animacion: que boca y que ojos le corresponden. Las que no
+// tienen una emocion propia se quedan con la cara de reposo.
+const GESTO_DE_ANIM = {
+  Idle:         { boca: 'feliz', ojos: 'normal' },
+  K7_Caminando: { boca: 'feliz', ojos: 'normal' },
+  K7_HighFive:  { boca: 'feliz', ojos: 'guino' },
+  K7_Saltito:   { boca: 'feliz', ojos: 'doble_guino' },
+  K7_Triste:    { boca: 'triste', ojos: 'triste' },
+  K7_Pensando:  { boca: 'pensando', ojos: 'pensando' },
+};
+
+const bocas = {}, ojos = {};
+let hCabeza = null;
+let bocaPuesta = null, ojosPuestos = null;
+
+function ponerBoca(nombre) {
+  if (bocaPuesta === nombre || !bocas[nombre]) return;
+  bocaPuesta = nombre;
+  for (const n in bocas) bocas[n].visible = (n === nombre);
+}
+
+function ponerOjos(nombre) {
+  if (ojosPuestos === nombre || !ojos[nombre]) return;
+  ojosPuestos = nombre;
+  for (const n in ojos) ojos[n].visible = (n === nombre);
+}
+
+function aplicarGesto(nombreAnim) {
+  const g = GESTO_DE_ANIM[nombreAnim];
+  if (!g) return;
+  ponerBoca(g.boca);
+  ponerOjos(g.ojos);
+}
 
 const loaderEl = document.getElementById('loader');
 const loaderTxt = document.getElementById('loader-txt');
@@ -331,36 +545,66 @@ function resetView() {
 function showMesh(name) {
   for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
   colocarBoca(name);
+  colocarOjos(name);
   for (const b of modelBtns) b.setAttribute('aria-pressed', b.dataset.mesh === name);
 }
 
 function colocarBoca(nombreMalla) {
   const m = BOCA_DE_MODELO[nombreMalla];
-  if (!boca || !m) return;
-  boca.position.set(...m.pos);
-  boca.scale.set(m.escala * ANCHO, m.escala, m.escala);
+  if (!m) return;
+  for (const n in bocas) {
+    bocas[n].position.set(...m.pos);
+    bocas[n].scale.set(m.escala * ANCHO, m.escala, m.escala);
+  }
 }
 
-// la boca y el robot llegan por su cuenta y sin orden garantizado, asi que
-// esto se llama desde los dos sitios y solo actua cuando ya estan los dos
-function montarBoca() {
-  if (!boca || !hCabeza || boca.parent === hCabeza) return;
-  hCabeza.add(boca);
-  colocarBoca(MESHES.find((n) => parts[n] && parts[n].visible) || MESHES[0]);
-  aplicarPaleta(model, paleta);   // ya cuelga del modelo: hay que pintarla
+function colocarOjos(nombreMalla) {
+  const m = OJOS_DE_MODELO[nombreMalla];
+  if (!m) return;
+  for (const n in ojos) {
+    ojos[n].position.set(...m.pos);
+    ojos[n].scale.setScalar(m.escala);
+  }
 }
 
-new GLTFLoader().load('bocas.glb', (gltf) => {
-  boca = gltf.scene.getObjectByName('feliz');
-  if (!boca) { fail('falta la boca feliz en bocas.glb'); return; }
-  boca.castShadow = false;      // es plana y va pegada a la cara
-  boca.receiveShadow = false;
-  boca.frustumCulled = false;   // cuelga de un hueso: su caja no se recalcula
-  montarBoca();
-}, undefined, (e) => fail('bocas.glb: ' + e.message));
+// la boca/ojos y el robot llegan por su cuenta y sin orden garantizado, asi
+// que esto se llama desde los dos sitios y solo actua cuando ya estan los dos
+function montarCara() {
+  if (!hCabeza || !bocas.feliz || !ojos.normal) return;
+  if (bocas.feliz.parent !== hCabeza) {
+    for (const n in bocas) hCabeza.add(bocas[n]);
+    for (const n in ojos) hCabeza.add(ojos[n]);
+    const nombreMalla = MESHES.find((n) => parts[n] && parts[n].visible) || MESHES[0];
+    colocarBoca(nombreMalla);
+    colocarOjos(nombreMalla);
+    ponerBoca('feliz');
+    ponerOjos('normal');
+  }
+  aplicarPaleta(model, paleta);   // ya cuelgan del modelo: hay que pintarlas
+}
 
+function cargarCaras(url, nombres, destino) {
+  new GLTFLoader().load(url, (gltf) => {
+    for (const n of nombres) {
+      const malla = gltf.scene.getObjectByName(n);
+      if (!malla) { fail(`falta '${n}' en ${url}`); continue; }
+      malla.castShadow = false;      // es plana y va pegada a la cara
+      malla.receiveShadow = false;
+      malla.frustumCulled = false;   // cuelga de un hueso: su caja no se recalcula
+      malla.visible = false;
+      destino[n] = malla;
+    }
+    montarCara();
+  }, undefined, (e) => fail(url + ': ' + e.message));
+}
+
+cargarCaras('bocas.glb', ['feliz', 'abierta', 'pensando', 'sorpresa', 'triste'], bocas);
+cargarCaras('ojos.glb', ['normal', 'triste', 'guino', 'doble_guino', 'pensando'], ojos);
+
+// cache-bust: robot.glb se reexporta seguido mientras se ajustan poses, y el
+// navegador (y a veces el propio server local) lo sirven cacheado sin avisar
 new GLTFLoader().load(
-  'robot.glb',
+  'robot.glb?v=' + Date.now(),
   (gltf) => {
     model = gltf.scene;
 
@@ -390,8 +634,8 @@ new GLTFLoader().load(
     if (missing.length) fail('faltan mallas en robot.glb: ' + missing.join(', '));
 
     hCabeza = model.getObjectByName('head');
-    if (!hCabeza) fail('falta el hueso head en robot.glb: K-7 se queda sin boca');
-    montarBoca();
+    if (!hCabeza) fail('falta el hueso head en robot.glb: K-7 se queda sin cara');
+    montarCara();
 
     if (gltf.animations.length) {
       mixer = new THREE.AnimationMixer(model);
@@ -425,6 +669,7 @@ new GLTFLoader().load(
 
     frame(model);
     showMesh(MESHES[0]);
+    setupDevMode();
 
     loaderEl.classList.add('done');
   },
@@ -440,8 +685,20 @@ new GLTFLoader().load(
 
 for (const b of modelBtns) b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
-animBtns.push(...document.querySelectorAll('#anims button'));
-for (const b of animBtns) b.addEventListener('click', () => fadeToAction(b.dataset.anim));
+const animBurger = document.getElementById('anims-burger');
+const animMenu = document.getElementById('anims-menu');
+animBurger.addEventListener('click', () => {
+  const abrir = animMenu.hidden;
+  animMenu.hidden = !abrir;
+  animBurger.setAttribute('aria-expanded', String(abrir));
+});
+
+animBtns.push(...document.querySelectorAll('#anims button, #anims-menu button'));
+for (const b of animBtns) b.addEventListener('click', () => {
+  fadeToAction(b.dataset.anim);
+  animMenu.hidden = true;
+  animBurger.setAttribute('aria-expanded', 'false');
+});
 
 const toggle = (btn, fn) => btn.addEventListener('click', () => {
   const on = btn.getAttribute('aria-pressed') !== 'true';

@@ -258,6 +258,9 @@
   <button data-pal="dos" aria-pressed="false" title="Paleta 2">
     <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
   </button>
+  <button data-pal="tres" aria-pressed="false" title="Paleta 3">
+    <span class="sw"><i style="--c:#d852db"></i><i style="--c:#4fc180"></i><i style="--c:#50aed8"></i><i style="--c:#ead34e"></i></span>
+  </button>
 </div>
 
 <div id="hud">
@@ -354,7 +357,7 @@ scene.add(ground);
 
 /* ------------------------------------------------------- K-7 habla ------ */
 /* La boca cambia de forma: build_bocas.py le quitó a la malla la sonrisa que
-   traía soldada y dejó las cuatro bocas de bocas.blend sueltas en bocas.glb.
+   traía soldada y dejó las cinco bocas de bocas.blend sueltas en bocas.glb.
    Cuelgan del hueso 'head', así que siguen a la cabeza sin formar parte del
    skin, y hablar es encender una u otra al ritmo de las sílabas.
 
@@ -390,14 +393,32 @@ const BOCA_DE_MODELO = {
    solo ella; las demás se quedan con el ancho que tienen dibujado. */
 const ANCHO_DE_BOCA = { feliz: 0.85 };
 
+// mismas medidas que en el visor (index.html): build_ojos.py le quito al
+// robot los ojos basicos soldados a la cabeza, asi que aqui tambien hay que
+// colgarle unos ojos sueltos o se queda con las gafas vacias.
+const OJOS_DE_MODELO = {
+  Modelo1: { pos: [0, 0.4670, 0.3100], escala: 0.5294 },
+  Modelo2: { pos: [0, 0.5218, 0.4202], escala: 0.4129 },
+  Modelo3: { pos: [0, 0.3858, 0.4722], escala: 0.4129 },
+};
+
 const bocas = {};                 // nombre -> malla
 let bocaPuesta = null;
 let bocaEnReposo = 'feliz';       // a la que vuelve cuando no habla
+
+const ojos = {};                  // nombre -> malla
+let ojosPuestos = null;
 
 function ponerBoca(nombre) {
   if (bocaPuesta === nombre || !bocas[nombre]) return;
   bocaPuesta = nombre;
   for (const n of Object.keys(bocas)) bocas[n].visible = (n === nombre);
+}
+
+function ponerOjos(nombre) {
+  if (ojosPuestos === nombre || !ojos[nombre]) return;
+  ojosPuestos = nombre;
+  for (const n of Object.keys(ojos)) ojos[n].visible = (n === nombre);
 }
 
 const hablando = (si) => { hablaObj = si ? 1 : 0; };
@@ -519,6 +540,7 @@ function frame() {
 function showMesh(name) {
   for (const n of MESHES) if (parts[n]) parts[n].visible = (n === name);
   colocarBocas(name);
+  colocarOjos(name);
   for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
     b.setAttribute('aria-pressed', b.dataset.mesh === name);
 }
@@ -547,6 +569,7 @@ new GLTFLoader().load('robot.glb', (gltf) => {
   hPecho  = model.getObjectByName('chest');
   if (!hCabeza) fail('falta el hueso head en robot.glb: K-7 no podrá hablar');
   montarBocas();
+  montarOjos();
 
   for (const n of MESHES) parts[n] = model.getObjectByName(n);
   const missing = MESHES.filter((n) => !parts[n]);
@@ -586,6 +609,14 @@ function montarBocas() {
   ponerBoca(bocaEnReposo);
 }
 
+function montarOjos() {
+  if (!hCabeza || !ojos.normal || ojos.normal.parent === hCabeza) return;
+  for (const n of Object.keys(ojos)) hCabeza.add(ojos[n]);
+  colocarOjos(MESHES.find((n) => parts[n] && parts[n].visible) || MESHES[0]);
+  aplicarPaleta(model, paleta);
+  ponerOjos('normal');
+}
+
 // cada modelo tiene la cara a distinta altura y anchura
 function colocarBocas(nombreMalla) {
   const m = BOCA_DE_MODELO[nombreMalla];
@@ -596,8 +627,17 @@ function colocarBocas(nombreMalla) {
   }
 }
 
+function colocarOjos(nombreMalla) {
+  const m = OJOS_DE_MODELO[nombreMalla];
+  if (!m) return;
+  for (const n of Object.keys(ojos)) {
+    ojos[n].position.set(...m.pos);
+    ojos[n].scale.setScalar(m.escala);
+  }
+}
+
 new GLTFLoader().load('bocas.glb', (gltf) => {
-  for (const n of ['feliz', 'abierta', 'pensando', 'sorpresa']) {
+  for (const n of ['feliz', 'abierta', 'pensando', 'sorpresa', 'triste']) {
     const ob = gltf.scene.getObjectByName(n);
     if (!ob) { fail('falta la boca ' + n + ' en bocas.glb'); continue; }
     ob.visible = false;
@@ -608,6 +648,18 @@ new GLTFLoader().load('bocas.glb', (gltf) => {
   }
   montarBocas();
 }, undefined, (e) => fail('bocas.glb: ' + e.message));
+
+// los ojos no cambian con la charla (solo la boca sigue el habla), asi que
+// basta con el par normal: los otros gestos son cosa del visor 3D
+new GLTFLoader().load('ojos.glb', (gltf) => {
+  const ob = gltf.scene.getObjectByName('normal');
+  if (!ob) { fail('faltan los ojos normales en ojos.glb'); return; }
+  ob.castShadow = false;
+  ob.receiveShadow = false;
+  ob.frustumCulled = false;
+  ojos.normal = ob;
+  montarOjos();
+}, undefined, (e) => fail('ojos.glb: ' + e.message));
 
 // el fondo se carga aparte y no bloquea el arranque de la charla
 new GLTFLoader().load('implementos.glb', (gltf) => {

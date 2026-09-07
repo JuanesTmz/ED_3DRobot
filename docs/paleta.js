@@ -70,6 +70,30 @@ export const PALETAS = {
     lente:    [0.800, 0.800, 0.800],
     tinta:    [0.004, 0.063, 0.120, 1.0],
   },
+  tres: {
+    // Los 6 colores base son la conversion exacta (sRGB->lineal) de los
+    // hex de la imagen, igual que en paleta uno/dos: sin ese paso three los
+    // pintaria mal, porque trabaja en espacio lineal. La emision (4to valor,
+    // por defecto 0.2) sube un poco mas que en las otras paletas -mismo
+    // mecanismo que ya usa 'circuito' en la paleta dos- porque estos son
+    // colores muy saturados y la luz de la escena + el tonemap los apagaba
+    // bastante; el propio color base no se toca.
+    nombre:   'Paleta 3',
+    base:     [0.687, 0.084, 0.708, 0.38],
+    base_d:   [0.563, 0.069, 0.581, 0.38],
+    acento:   [0.078, 0.533, 0.216, 0.38],
+    acento_d: [0.064, 0.437, 0.177, 0.38],
+    calzado:  [0.064, 0.437, 0.177, 0.38],
+    bata:     [0.080, 0.423, 0.687, 0.38],
+    bata_d:   [0.066, 0.347, 0.563, 0.38],
+    oscuro:   [0.014, 0.050, 0.067],
+    claro:    [0.920, 0.930, 0.940],
+    amarillo: [0.823, 0.651, 0.076, 0.38],
+    naranja:  [0.784, 0.292, 0.054, 0.38],
+    circuito: [0.078, 0.533, 0.216, 0.38],
+    lente:    [0.586, 0.740, 0.859],
+    tinta:    [0.014, 0.050, 0.067, 1.0],
+  },
 };
 
 const CLAVE = 'ed3d-paleta';

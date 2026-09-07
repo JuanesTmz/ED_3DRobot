@@ -34,7 +34,7 @@ import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROBOT = os.path.join(HERE, "docs", "robot.glb")
-BOCAS_BLEND = os.path.join(HERE, "bocas.blend")
+BOCAS_BLEND = os.path.join(HERE, "referencias", "bocas.blend")
 BOCAS_GLB = os.path.join(HERE, "docs", "bocas.glb")
 
 # objeto en bocas.blend -> nombre con el que sale al GLB
@@ -43,6 +43,7 @@ NOMBRES = {
     "Boca abierta": "abierta",
     "Pensando":     "pensando",
     "Sorpresa":     "sorpresa",
+    "triste":       "triste",
 }
 REFERENCIA = "BocaFeliz"      # la que define la escala: su ancho vale 1
 TINTA = (0.153, 0.204, 0.278)
@@ -166,8 +167,17 @@ def rendijas(ob, caras):
     El CubeHead tiene la cara hecha de baldosas y le quitaron las que quedaban
     tapadas por otras piezas. Las de la boca las tapaba la sonrisa vieja: sin
     ella se ve el hueco. Se parte el plano por las aristas de las baldosas que
-    si estan y se mira que celda queda sin cubrir."""
+    si estan y se mira que celda queda sin cubrir.
+
+    El contorno tambien tiene caras de frente en este mismo plano (el marco de
+    las gafas) y puede ser el vecino mas cercano a un hueco: si se le dejara
+    elegir, el parche saldria con la tinta del contorno en vez de la piel, o
+    -en el Modelo3, donde el cubo volteado deja la piel real fuera de este
+    plano- seria lo unico que hay para copiar. Un hueco sin ningun vecino que
+    no sea contorno se deja tal cual: lo va a tapar la malla dinamica que
+    cuelga encima (boca u ojo)."""
     me = ob.data
+    outline = {i for i, m in enumerate(me.materials) if m and "outline" in m.name.lower()}
     puestas = []
     for p in caras:
         co = [me.vertices[i].co for i in p.vertices]
@@ -185,13 +195,15 @@ def rendijas(ob, caras):
             (llenas if tapa else huecos).append(
                 (cx, cz, tapa[4]) if tapa else (x0, x1, z0, z1, cx, cz))
 
+    rellenas = [c for c in llenas if c[2] not in outline]
+    if not rellenas:
+        return []  # este plano es solo el marco: no hay nada bueno que copiar
+
     # cada hueco se pinta como la baldosa mas cercana de su misma fila; en un
     # empate manda la de la izquierda, que es como sigue la diagonal de la cara
     faltan = []
     for x0, x1, z0, z1, cx, cz in huecos:
-        fila = [c for c in llenas if abs(c[1] - cz) < 1e-6] or llenas
-        if not fila:
-            continue
+        fila = [c for c in rellenas if abs(c[1] - cz) < 1e-6] or rellenas
         faltan.append((x0, x1, z0, z1, min(fila, key=lambda c: (abs(c[0] - cx), c[0]))[2]))
     return faltan
 
