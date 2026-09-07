@@ -15,6 +15,7 @@
     --hl2:#7bb03a;            /* resalte verde */
     --navy:#27344a;           /* tinta del visor */
     --paper-bg:#eef1f6;       /* fondo claro del visor */
+    --blue:#50aed8;           /* azul de la paleta de K-7 (paleta 3) */
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
@@ -34,7 +35,14 @@
     padding:0 clamp(12px,4vw,40px) clamp(16px,4vh,44px);
     pointer-events:none;
   }
-  #box-wrap{width:min(860px,100%);position:relative;pointer-events:auto}
+  #box-wrap{
+    width:min(860px,100%);position:relative;pointer-events:auto;
+    transition:transform .3s ease;
+  }
+  /* el mensaje entero -etiqueta incluida, que si no se queda tapando la
+     imagen- baja fuera de la vista; el botoncito vive fuera de box-wrap,
+     así que no se mueve con él y sigue a mano para volver a subirlo */
+  #box-wrap.peek{transform:translateY(160%)}
 
   #nametag{
     position:relative;left:clamp(6px,2vw,26px);bottom:-10px;
@@ -46,6 +54,17 @@
   #nametag.hidden{visibility:hidden}
   /* la profe Vero todavia no tiene modelo: se reconoce por el color de su etiqueta */
   #nametag.vero{background:var(--hl)}
+
+  /* botón para bajar el mensaje un momento y ver la pizarra completa: fijo
+     abajo a la derecha, fuera de box-wrap para no bajar junto con él */
+  #peek-btn{
+    display:none;position:fixed;right:clamp(16px,4vw,40px);bottom:clamp(16px,4vh,40px);
+    z-index:6;width:60px;height:60px;border-radius:999px;pointer-events:auto;
+    background:var(--blue);color:#fff;border:3px solid rgba(255,255,255,.85);
+    box-shadow:0 4px 0 rgba(0,0,0,.18);font-size:26px;line-height:1;cursor:pointer;
+    align-items:center;justify-content:center;
+  }
+  #peek-btn.on{display:flex}
 
   #box{
     position:relative;border-radius:34px;padding:clamp(20px,3vw,30px) clamp(22px,3.5vw,38px);
@@ -191,6 +210,10 @@
   }
   /* la profe Vero comparte burbuja con K-7, pero no su color */
   .msg.k7.vero{background:#fdeef5}
+  /* la imagen de la pizarra queda también como un mensaje aparte, justo
+     después del texto que la acompañó */
+  .msg.img{max-width:88%}
+  .msg.img img{display:block;width:100%;border-radius:14px;margin-top:6px}
   .msg.user{
     align-self:flex-end;background:#a8effd;color:#17495a;
     border-radius:18px 18px 5px 18px;
@@ -217,6 +240,17 @@
     position:fixed;inset:auto 20px 20px 20px;padding:14px 16px;border-radius:10px;
     background:#3b1220;color:#ffd9e4;font:12px/1.5 ui-monospace,monospace;
     white-space:pre-wrap;display:none;z-index:20;
+  }
+
+  /* --------------------------------------------------- pizarra (transición) */
+  /* Cuando K-7 explica una actividad, la cámara hace zoom al tablero y ahí
+     aparece la imagen, con un estallido de "tiza" al entrar y al salir. */
+  #chalk{position:fixed;inset:0;z-index:4;pointer-events:none}
+  #board-img{
+    position:fixed;z-index:4;pointer-events:none;opacity:0;
+    border-radius:6px;box-shadow:0 10px 34px rgba(0,0,0,.4);
+    object-fit:contain;background:#fff;
+    transition:opacity .32s ease;
   }
   @media (max-width:560px){
     #text{min-height:calc(4 * 1.5em)}
@@ -263,6 +297,8 @@
   </button>
 </div>
 
+<button id="peek-btn" type="button" title="Bajar el mensaje para ver la pizarra">&#9662;</button>
+
 <div id="hud">
   <div id="box-wrap">
     <div id="nametag">K-7</div>
@@ -283,6 +319,9 @@
   <p></p>
   <small>clic para continuar</small>
 </div>
+
+<canvas id="chalk"></canvas>
+<img id="board-img" alt="">
 
 <div id="loader"><div class="bar"><i></i></div><div id="loader-txt">encendiendo el escenario…</div></div>
 <pre id="err"></pre>
@@ -376,6 +415,11 @@ const barEl     = document.querySelector('.bar i');
 const CENTER = new THREE.Vector3();   // centro real del modelo
 let modelRadius = 1;
 
+/* --------------------------------------------------- pizarra (transición) */
+let camPoseK7 = null;      // pose "normal" frente a K-7, la que deja frame()
+let inBoardView = false;   // true mientras la cámara mira al tablero
+let boardBox = null;       // Box3 del Tablero en espacio mundo (no se mueve)
+
 /* ------------------------------------------------------ muebles del fondo */
 /* Los tres implementos salen de ImplementosFondo.blend con acabado de boceto:
    relleno blanco hueso y contorno oscuro horneado en la malla. Se reparten
@@ -418,6 +462,11 @@ function repartirProps() {
 // fraccion se quedaba corta y el personaje quedaba con la cabeza pegada a
 // los botones. Mide los dos huecos de verdad en vez de adivinarlos.
 function frame() {
+  // si la cámara está mirando al tablero (ver pizarra más abajo), esta llamada
+  // solo debe refrescar camPoseK7 para cuando se vuelva; no debe mover la
+  // cámara que el docente tiene delante en ese momento
+  const posarDespues = inBoardView ? { pos: camera.position.clone(), target: TARGET.clone() } : null;
+
   const arribaLibre = document.getElementById('avatars').getBoundingClientRect().bottom;
   const abajoLibre = document.getElementById('hud').getBoundingClientRect().top;
   const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
@@ -433,6 +482,13 @@ function frame() {
   TARGET.y -= bajar;
   camera.position.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
   camera.lookAt(TARGET);
+  camPoseK7 = { pos: camera.position.clone(), target: TARGET.clone() };
+
+  if (posarDespues) {
+    camera.position.copy(posarDespues.pos);
+    TARGET.copy(posarDespues.target);
+    camera.lookAt(TARGET);
+  }
   repartirProps();
 }
 
@@ -494,6 +550,9 @@ new GLTFLoader().load('implementos.glb', (gltf) => {
     ob.rotation.set(0, THREE.MathUtils.degToRad(m.rot), 0);
     ob.userData = { x: m.x, fijo: !!m.fijo };
     props.add(ob);
+    // el Tablero es 'fijo' (su x no depende del ancho de pantalla): su caja
+    // en espacio mundo no vuelve a cambiar, se puede medir una sola vez aquí
+    if (m.pieza === 'Tablero') boardBox = new THREE.Box3().setFromObject(ob);
   }
   repartirProps();
 }, undefined, (e) => fail('implementos.glb: ' + e.message));
@@ -501,19 +560,191 @@ new GLTFLoader().load('implementos.glb', (gltf) => {
 for (const b of document.querySelectorAll('#avatars button[data-mesh]'))
   b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
+/* --------------------------------------------------- pizarra (transición) */
+/* Cuando K-7 termina de explicar una actividad, la cámara deja de mirarlo a
+   él y hace zoom al Tablero de implementos.glb; ahí "aparece" una imagen con
+   un estallido de partículas de tiza, como si se hubiera rayado de golpe.
+   Al avanzar el guion, el mismo camino se recorre en reversa. Todo vive aquí
+   porque solo lo usa el guion (más abajo), nada del resto de la escena. */
+
+const elChalk    = document.getElementById('chalk');
+const elBoardImg = document.getElementById('board-img');
+const ctxChalk   = elChalk.getContext('2d');
+
+let camAnim = null;         // tween de cámara en curso, o null si no hay
+let chalkParticles = [];    // partículas de tiza vivas
+let pizarraActiva = false;  // la imagen está mostrándose (a la espera de un clic)
+let pizarraAnimando = false; // zoom/estallido en curso: ignora clics
+
+function resizeChalk() {
+  elChalk.width = innerWidth * devicePixelRatio;
+  elChalk.height = innerHeight * devicePixelRatio;
+  elChalk.style.width = innerWidth + 'px';
+  elChalk.style.height = innerHeight + 'px';
+}
+resizeChalk();
+
+function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2; }
+
+// mueve cámara+objetivo de donde están ahora hasta `to` en `dur` ms
+function tweenCamera(to, dur, onDone) {
+  camAnim = {
+    t0: performance.now(), dur, onDone,
+    from: { pos: camera.position.clone(), target: TARGET.clone() },
+    to,
+  };
+}
+
+function esperar(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// pose frente al tablero: recalculada cada vez (el fov efectivo cambia con
+// el aspect de la ventana), a diferencia de camPoseK7 que frame() ya cachea
+function poseTablero() {
+  if (!boardBox) return null;
+  const center = boardBox.getCenter(new THREE.Vector3());
+  const size = boardBox.getSize(new THREE.Vector3());
+  const dir = new THREE.Vector3(0.05, 0.05, 1).normalize();   // casi de frente
+  const halfFovV = THREE.MathUtils.degToRad(camera.fov * 0.5);
+  const halfFovH = Math.atan(Math.tan(halfFovV) * camera.aspect);
+  const dist = Math.max(
+    (size.y * 0.5) / Math.tan(halfFovV),
+    (size.x * 0.5) / Math.tan(halfFovH),
+  ) * 1.25;   // margen para que el tablero no quede a ras del encuadre
+  return { pos: center.clone().addScaledVector(dir, dist), target: center.clone() };
+}
+
+// rectángulo en píxeles que ocupa la cara visible del tablero, con la cámara
+// ya en su pose actual — así se posiciona la imagen encima de él
+function rectoTablero(pad = 0.10) {
+  const anchoX = boardBox.max.x - boardBox.min.x, anchoY = boardBox.max.y - boardBox.min.y;
+  const z = boardBox.max.z;   // cara que mira hacia K-7 / la cámara
+  const a = new THREE.Vector3(boardBox.min.x + anchoX * pad, boardBox.min.y + anchoY * pad, z).project(camera);
+  const b = new THREE.Vector3(boardBox.max.x - anchoX * pad, boardBox.max.y - anchoY * pad, z).project(camera);
+  const xs = [a.x, b.x].map((x) => (x * 0.5 + 0.5) * innerWidth);
+  const ys = [a.y, b.y].map((y) => (1 - (y * 0.5 + 0.5)) * innerHeight);
+  const left = Math.min(...xs), top = Math.min(...ys);
+  return { left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top };
+}
+
+function ponerRectoImg(r) {
+  elBoardImg.style.left = r.left + 'px';
+  elBoardImg.style.top = r.top + 'px';
+  elBoardImg.style.width = r.width + 'px';
+  elBoardImg.style.height = r.height + 'px';
+}
+
+// estalla un puñado de motas de tiza dentro de `rect`; en reversa salen con
+// menos fuerza y hacia arriba, como si el borrador las levantara
+function chalkBurst(rect, { reverse = false } = {}) {
+  for (let i = 0; i < 70; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = reverse ? 15 + Math.random() * 30 : 40 + Math.random() * 90;
+    chalkParticles.push({
+      x: rect.left + Math.random() * rect.width,
+      y: rect.top + Math.random() * rect.height,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - (reverse ? 70 : 0),
+      life: 0, dur: 0.45 + Math.random() * 0.35,
+      r: 1.4 + Math.random() * 2.4,
+    });
+  }
+}
+
+function actualizarChalk(dt) {
+  if (!chalkParticles.length) return;
+  ctxChalk.clearRect(0, 0, elChalk.width, elChalk.height);
+  ctxChalk.save();
+  ctxChalk.scale(devicePixelRatio, devicePixelRatio);
+  const vivas = [];
+  for (const p of chalkParticles) {
+    p.life += dt;
+    if (p.life >= p.dur) continue;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 55 * dt;
+    ctxChalk.globalAlpha = (1 - p.life / p.dur) * 0.85;
+    ctxChalk.fillStyle = '#f4f1e8';
+    ctxChalk.beginPath();
+    ctxChalk.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctxChalk.fill();
+    vivas.push(p);
+  }
+  ctxChalk.restore();
+  chalkParticles = vivas;
+  if (!vivas.length) ctxChalk.clearRect(0, 0, elChalk.width, elChalk.height);
+}
+
+async function mostrarPizarra(src) {
+  if (pizarraAnimando || pizarraActiva) return;
+  const pose = poseTablero();
+  if (!pose) return;   // implementos.glb no llegó a tiempo: sin pizarra, sin frenar el guion
+  pizarraAnimando = true;
+  inBoardView = true;
+  await new Promise((res) => tweenCamera(pose, 900, res));
+  const rect = rectoTablero();
+  chalkBurst(rect);
+  await esperar(260);
+  elBoardImg.src = src;
+  ponerRectoImg(rect);
+  elBoardImg.style.opacity = '1';
+  pizarraActiva = true;
+  pizarraAnimando = false;
+  elPeek.classList.add('on');
+
+  // que quede también en el historial, como un mensaje aparte justo después
+  // del texto que la mostró (por eso se adelanta el flushPending de aquí:
+  // si no, el siguiente next() la pondría en el historial antes que la
+  // imagen y quedarían al revés)
+  flushPending();
+  addEntry((pendingWho === V ? 'k7 vero' : 'k7') + ' img', `<img src="${src}" alt="">`, pendingWho);
+}
+
+async function ocultarPizarra() {
+  if (pizarraAnimando || !pizarraActiva) return;
+  pizarraAnimando = true;
+  pizarraActiva = false;
+  bajarMensaje(false);        // si se había bajado para mirar, que vuelva antes de cerrar
+  elPeek.classList.remove('on');
+  elBoardImg.style.opacity = '0';
+  chalkBurst(rectoTablero(), { reverse: true });
+  await esperar(280);
+  await new Promise((res) => tweenCamera(camPoseK7, 900, res));
+  inBoardView = false;
+  pizarraAnimando = false;
+}
+
+// baja el mensaje -y su etiqueta- un momento para ver la pizarra completa;
+// solo tiene sentido mientras la pizarra está activa
+let mensajeBajado = false;
+function bajarMensaje(bajar = !mensajeBajado) {
+  mensajeBajado = bajar;
+  elBoxWrap.classList.toggle('peek', mensajeBajado);
+  elPeek.innerHTML = mensajeBajado ? '&#9652;' : '&#9662;';
+}
+
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  resizeChalk();
   if (k7.model) frame();
+  if (pizarraActiva) ponerRectoImg(rectoTablero());
 });
 
 renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
   k7.actualizar(dt);
-  const t = performance.now() * 0.0004;
-  // respiración mínima de cámara: la escena nunca queda del todo quieta
-  camera.position.x += Math.sin(t) * 0.00035;
+  actualizarChalk(dt);
+
+  if (camAnim) {
+    const t = Math.min(1, (performance.now() - camAnim.t0) / camAnim.dur);
+    const e = easeInOutCubic(t);
+    camera.position.lerpVectors(camAnim.from.pos, camAnim.to.pos, e);
+    TARGET.lerpVectors(camAnim.from.target, camAnim.to.target, e);
+    if (t >= 1) { const done = camAnim.onDone; camAnim = null; done?.(); }
+  } else {
+    const t = performance.now() * 0.0004;
+    // respiración mínima de cámara: la escena nunca queda del todo quieta
+    camera.position.x += Math.sin(t) * 0.00035;
+  }
   camera.lookAt(TARGET);
   renderer.render(scene, camera);
 });
@@ -545,6 +776,32 @@ const pick = (text, options) => ({ who: K, text, options });
 /* botón de un solo camino: sirve de latido entre bloques */
 const beat = (text, label) => ({ who: K, text, options: [{ label }] });
 const dyn  = (fn) => ({ who: K, dynamic: fn });
+/* emote condicional: K-7 se pone triste si el docente dejó ese campo en blanco */
+const emoteSiSilencio = (campo) => () => (dicho[campo] ? null : 'K7_Triste');
+
+/* dos saltitos seguidos, uno ladeado a cada lado: reutiliza la animación
+   K7_Saltito tal cual (no hay clip mirrado) y le monta encima un pequeño
+   desplazamiento lateral en X, a la izquierda la primera vez y a la derecha
+   la segunda -como el cabeceo de hablar(), pero puntual y no cada fotograma */
+function saltoLadeado(signo) {
+  return new Promise((resolve) => {
+    k7.reproducir('K7_Saltito');
+    const clip = k7.actions['K7_Saltito']?.getClip();
+    const dur = (clip ? clip.duration : 0.6) * 1000;
+    const t0 = performance.now();
+    const desplazar = signo * 0.16;
+    (function step() {
+      const t = Math.min(1, (performance.now() - t0) / dur);
+      k7.model.position.x = Math.sin(t * Math.PI) * desplazar;
+      if (t >= 1) { k7.model.position.x = 0; resolve(); return; }
+      requestAnimationFrame(step);
+    })();
+  });
+}
+async function saltosProfe() {
+  await saltoLadeado(-1);
+  await saltoLadeado(1);
+}
 
 const script = [
 
@@ -555,67 +812,108 @@ const script = [
   /* --------------------------------------------------------------- 1.1 */
   say('Buenas tardes, profe. ¿Me conoce? Soy <b>K-7</b>.'),
   say('Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es <b>K-7</b>.\nNo lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.'),
-  say('Espero que no le incomode, pero tengo algo que decirle: tiene usted <b>mi admiración</b>. Le podrá parecer excesivo, más si no me conoce, pero tengo razones.'),
-  say('Verá, tengo acceso a una cantidad enorme de información, ni usted podría adivinar cuánta. Pero por más que acumulo y acumulo, nunca será suficiente para ser docente. ¡Por eso tiene mi admiración!'),
-  say('Y por favor, no se ría de mí, pero <i>me gustaría ser profe</i>. Como usted.'),
-  say('Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este».'),
-  ask('Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?',
+  say('Espero que no le incomode, pero tengo algo que decirle: quiero ser como usted.'),
+  say('Le podrá parecer excesivo, más si no me conoce, pero verá: tengo acceso a una cantidad enorme de información, ni usted podría adivinar cuánta.'),
+  say('Pero por más que acumulo y acumulo, nunca será suficiente para ser docente.'),
+  say('¡Por eso tiene mi admiración!'),
+  say('Y por favor, no se ría de mí, pero <i>me gustaría ser profe</i>, como usted.'),
+  ask('Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este». Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?',
       'presentacion', 'Su nombre y algo importante sobre usted…'),
 
   /* ------------------------------------------------- 1.1 continuación */
-  dyn(saludo),
-  say('Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de <b>quinto grado</b>. <b>Medellín</b>.'),
-  say('¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica no tiene una sola fisura, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.'),
-  say('Aquí está el borrador en pantalla:\n\n<b>Fracciones equivalentes · 5.º grado</b>\n<b>1.</b> Sarah camina <i>3/4</i> de milla hasta la escuela y luego <i>2/8</i> de milla hasta la biblioteca. ¿Cuánto caminó en total?\n<b>2.</b> En la <i>bake sale</i> del colegio se venden <i>pies</i> de manzana cortados en octavos, a 2.50 dólares la porción: ¿cuánto cuestan 5/8 de <i>pie</i>?\n<b>3.</b> Tarea: cada estudiante mide en pulgadas las porciones de un <i>pie</i> hecho en casa y las compara con las de un compañero.'),
+  { ...dyn(saludo), emote: emoteSiSilencio('presentacion') },
+  say('Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de <b>quinto grado</b>. <b>Medellín</b>. ¡Un clásico! ¿Eh?'),
+  say('¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica está bien, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.'),
+  say('¡Puf! Los humanos son tan complicados e impredecibles…'),
+
+  /* {{Muestra imagen en tablero Actividad1.1.png}} */
+  { ...say('Aquí está el borrador en pantalla.'), board: 'img/Actividad1.1.png' },
+
+  /* {{Vuelve a K7}} — explica en texto lo que se veía en la imagen */
+  say('<b>Fracciones y sus aplicaciones · sistemas de trenes de alta velocidad</b>\n<b>1.</b> El Corredor del Nordeste de Amtrak tiene <i>3/4</i> de su longitud electrificada. Si el corredor mide 457 millas, ¿cuántas millas no están electrificadas?\n<b>2.</b> De la flota Acela Express, <i>1/2</i> está en servicio activo. Si hay 28 trenes en total, ¿cuántos están en servicio?'),
   pick('Mírelo con ojos de maestro y dígame con total franqueza: <b>¿usaría esta clase para su próxima clase?</b>', [
     { label: 'La verdad no, K-7. Sí, se ve ordenada, pero en un salón real aquí en Medellín nadie conectaría con eso.',
-      reply: '¡Recáspita! Ya veo, profe. Lo que usted identifikkka es entonces un problema de <b>kkkontexto</b>. Bueno, quizá sí, y en el papel se ve prolijo, pero en un salón real sería un desastre.' },
+      reply: 'Ya veo, profe. Lo que usted identifikkka es entonces un problema de <b>kkkontexto</b>. Bueno, quizá sí, y en el papel se ve prolijo, pero en un salón real sería un desastre.' },
     { label: 'No lo tengo tan claro. Es posible, pero si se tratara de mis estudiantes, diría que le falta conexión con sus vidas.',
-      reply: '¡Recáspita! Puedo calcular que en su respuesta la palabra que más peso tiene es <b>kkkkonexión</b>. Mi sistema no la detekkkktó, pero usted tiene ventaja sobre mí en identificar ese tipo de variables.' },
+      reply: 'Me lleva el que me trajo. Puedo calcular que en su respuesta la palabra que más peso tiene es <b>kkkonexión</b>. Mi sistema no la detekkktó, pero usted tiene ventaja sobre mí en identificar ese tipo de variables. ¿Lo sabía?' },
     { label: 'Sí, puede que funcione. Pero, ¿a qué quieres llegar con todo eso?',
-      reply: '¡Recáspita! Como le kkkomenté antes, quiero ser docente, pero nunca es suficiente. Este ejercicio ya lo probé y parece que simplemente… no conekkkta.' }
+      reply: 'Vea pues. Como le kkkkomenté antes, quiero ser docente, pero nunca es suficiente. Este ejercicio ya lo probé y parece kkkue simplemente… no conekkkta.' }
   ]),
 
   /* --------------------------------------------------------------- 1.2 */
   say('¿Sabe algo? Cuando me pongo nervioso se me salen las «k».'),
-  say('Tal vez kkkkuando señala el contexto o la conexión puede que esté relacionado con que el ejercicio se desarrolla en Estados Unidos, en millas y en un salón de clases muy diferente a lo que se enkkkkuentra en Medellín.'),
-  say('Y ya que ando reconociendo problemas, debo decirle otra kkkkosa. Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real. ¿Qué tienen que ver con el Metro, o acompañar a una mamá a hacer merkkkkado?'),
-  say('Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… ¿<i>sentir</i>?'),
-  ask('Profe (¿puedo decirle profe?), dígame algo: <b>¿kkkkué le cambio a este ejercicio para que funcione en un aula como la suya?</b>',
+  say('Tal vez kkkkuando señala el contexto o la conexión puede que esté relacionado con que el ejercicio se desarrolla en Estados Unidos, en millas, y en un salón de clases muy diferente a lo que se enkkkkuentra en Medellín.'),
+  { ...say('Y ya que ando reconociendo problemas, debo decirle otra kkkkosa.'), emote: 'K7_Pensando' },
+  say('Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real.'),
+  say('¿Qué tienen que ver con el Metro, o cómo las usa una mamá que va a hacer merkkkkado?'),
+  say('Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… <i>¿sentir?</i>'),
+  say('Profe (¿puedo decirle profe?), dígame algo…'),
+  say('¡Profe! ¡Já! Es que se siente tan bien decirle «profe».'),
+  { ...say('Profe, profe, profe, profe, profe, profe, profe, profe, profe…'), saltosLaterales: true },
+  ask('¿Kkkkué le cambio a este ejercicio para que funcione en un aula como la suya?',
       'ajuste', 'Qué le cambiaría al ejercicio…'),
 
   /* --------------------------------------------------------------- 1.3 */
   dyn(reciboAjuste),
-  say('Creo… creo que entiendo, profe. Estoy intentando resolver esto como si cambiara una variable en una ecuación. <b>Diseñé esa clase para un estudiante que no existe en Medellín.</b>'),
-  say('A las IA nos pasa eso mucho. ¿Si lo sabía? Eso sí, no todas son iguales. ¿Conoce a la <b>profe Vero</b>? Ella trabaja con la IA de Escuela Inteligente. Luego se la presento.'),
+  { ...say('Creo… creo que entiendo, profe. Estoy intentando resolver esto como si cambiara una variable en una ecuación. <b>Diseñé esa clase para un estudiante que no existe en Medellín.</b>'), emote: 'K7_Pensando' },
+  say('A las IA nos pasa eso mucho. ¿Si lo sabía? Eso sí, no todas son iguales. Por cierto, ¿conoce a la <b>profe Vero</b>? Ella trabaja con la IA de Escuela Inteligente. Luego se la presento. Ya viene en camino. ¡Es lo máximo!'),
   ask('Por ahora, creo que tengo una idea. Pero antes de contársela, le propongo algo: hagamos un experimento.\nProfe, dígame… <b>¿quiénes son sus estudiantes?</b> Ya sabe, nada de datos personales que los ponga en riesgo; mejor algo general, pero suficiente, que los describa bien.',
       'estudiantes', 'Quiénes son sus estudiantes…'),
 
   /* --------------------------------------------------------------- 1.4 */
   dyn(reciboEstudiantes),
-  say('Déjeme decirle algo: <b>solo usted kkkonoce a sus estudiantes</b>, sus ritmos y su contexto para garantizar que una kkklase funcione. Yo puedo procesar miles de datos por segundo, pero no tengo ojos en el aula ni kkkriterio pedagógico.'),
-  say('Por eso es un error kkkuando pretendo una clase por mi cuenta, ya sabe, sin un profe.'),
-  ask('Hagámoslo bien esta vez, trabajemos juntos. <b>Deme usted el rumbo</b>, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.\n¿Qué necesitan? ¿Dónde viven? ¿Qué les interesa? ¿Qué problemas tienen? Incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.',
+  say('Déjeme decirle algo: <b>solo usted kkkonoce a sus estudiantes</b> a ese nivel.'),
+  say('Sus ritmos, su contexto… eso es esencial para que la kkklase funcione.'),
+  say('Yo puedo procesar miles de datos, pero no tengo ojos en el aula ni kkkriterio pedagógico.'),
+  say('Por eso es un error kkkuando pretendo dar una clase por mi cuenta, ya sabe, sin un profe.'),
+  { ...say('Hagámoslo bien esta vez, trabajemos juntos. ¿Se anima?'), emote: 'K7_HighFive' },
+  ask('Deme usted el rumbo, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.\nAquí viene mi lluvia de preguntas: ¿quiénes son sus estudiantes? ¿qué necesitan? ¿dónde viven? ¿qué les interesa? ¿qué problemas tienen?\nProfe, incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.',
       'rumbo', 'El rumbo de la clase: situación, enfoque, intereses…'),
 
-  /* --------------------------------------------------------------- 1.5 */
-  dyn(claseReconstruida),
-  beat('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los <i>pies</i> de manzana por situaciones pertinentes para la vida de su salón. <b>Esta ya no es mi clase, profe. Es la suya.</b>\n\nPero deme un momento antes de responderme: quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo, la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
+  /* ---------------------------------------------- 1.5 · {{zoom a tablero}} */
+  { ...dyn(claseReconstruida), board: 'img/Actividad1.2.png' },
+
+  /* {{Zoom out a K7 de nuevo}} */
+  { ...say('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. <b>Esto ya es otra cosa.</b>'), emote: 'K7_Saltito' },
+  say('Esta ya no es mi clase, profe. Es la suya. ¿La llevarías al salón?'),
+  { ...say('¡!'), emote: 'K7_Saltito' },
+  beat('Profe, deme un momento antes de responderme. Quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo: la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para ayudarnos a recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
        'Hola, profe Vero'),
 
   /* --------------------------------------------------------------- 1.6 */
+  /* la profe Vero todavía no tiene modelo 3D: por ahora solo su diálogo */
   { who: V, dynamic: veroSaluda },
   vero('Hay un punto fundamental que ustedes dos acaban de identificar: <b>la IA no distingue una buena clase de una que solo parece serlo.</b> ¡Pero un docente como tú sí!'),
-  vero('Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca.'),
-  vero('Ceder la instrucción y dejar el rumbo pedagógico en manos de un algoritmo es un error, porque el resultado siempre será un cascarón vacío: técnicamente puede parecer impecable, pero nunca tendrá pertinencia ni viabilidad en el aula.'),
-  vero('Por eso, cuando utilices las herramientas de Escuela Inteligente, o cualquier IA con fines educativos, recuerda alimentarla con tu criterio, tus observaciones y el contexto de tu territorio. <b>La máquina te dará agilidad y estructura, pero la brújula y el sentido siempre los pones tú.</b>'),
-  { who: V, text: 'Profe, dime: <b>¿qué piensas sobre esta idea como cierre de la primera expedición?</b>',
+  vero('Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca, qué metodología quiere emplear, cómo quiere evaluar…'),
+
+  /* {{Zoom al tablero, se muestra imagen Herramienta1.3.jpg}} — varios
+     mensajes seguidos comparten la misma pizarra (board + boardHold) */
+  { ...vero('Puedes usar la IA de tu preferencia, pero algunas ya vienen configuradas para hacer el trabajo docente más sencillo.'), board: 'img/Herramienta1.3.jpg' },
+  { ...vero('Así funciona la <b>IA Escuela Inteligente</b>: escuelainteligente.medellin.edu.co'), boardHold: true },
+  { ...vero('Incluso te hace las preguntas necesarias para cada caso, recurso o reflexión.'), boardHold: true },
+  { ...vero('¿Y por qué usarla?'), boardHold: true },
+  { ...vero('Bueno, tienes ventajas, como ganar en agilidad mientras te ofrece una estructura bien soportada para cada tarea que le pidas.'), boardHold: true },
+  { ...vero('Y eso pasa sin que pierdas tu liderazgo en el proceso. Nunca lo puedes perder.'), boardHold: true },
+  { ...vero('Porque cada uno debe hacer lo que mejor sabe hacer: el docente piensa y conecta; la IA hace el trabajo de carpintería.'), boardHold: true },
+
+  { who: V, text: 'Profe, dime: <b>¿qué piensas sobre esta idea como conclusión de la primera expedición?</b>',
     input: 'reflexion', placeholder: 'Tu reflexión de cierre…' },
 
   /* --------------------------------------------------------------- 1.7 */
-  dyn(reciboReflexion),
-  beat('Profe, ha llegado el momento de entregarle su merecido reconocimiento por haber completado la Primera Expedición: <b>«La IA (es decir, yo) no sabe quién eres tú»</b>.\n\n¿Todo listo para la siguiente? Seguiremos con <i>«La IA no sabe que puede hacer daño»</i>.',
-       'Segunda Expedición'),
+  { ...dyn(reciboReflexion), emote: emoteSiSilencio('reflexion') },
+  vero('Ahora, para finalizar este nivel vamos a hacer dos cosas:'),
+
+  /* {{Se muestra en pantalla la imagen resumen1.4.png}} — un clic la retira */
+  { ...vero('Primero, te voy a compartir una imagen con algunas ideas importantes y conclusiones sobre lo que conversaste con K-7:'), board: 'img/resumen1.4.png' },
+
+  vero('Segundo, ha llegado el momento de entregarte tu merecido reconocimiento por haber completado la Primera Expedición:'),
+
+  /* {{Se muestra en pantalla la insignia insignia1.png}} */
+  { ...vero('«La IA no sabe quién eres tú»'), board: 'img/insignia1.png' },
+
+  vero('¿Todo listo para la siguiente expedición? Seguiremos con <i>«La IA no sabe que puede hacer daño»</i>.'),
+  { who: V, text: 'Te dejo con K-7, para que te siga acompañando.\n¡Nos vemos pronto!',
+    options: [{ label: 'Segunda Expedición' }] },
 
   /* ============================================ EXPEDICIÓN 2 ============ */
   { chapter: 'Expedición 2 · La IA no sabe que puede hacer daño',
@@ -651,13 +949,13 @@ function reciboAjuste() {
 }
 
 function reciboEstudiantes() {
-  if (!dicho.estudiantes) return '¡Zambomba! Ni una palabra. Y aun así aprendo algo: hay cosas de un salón que no se entregan a la primera, ni siquiera a una IA bien intencionada.';
-  return `¡Zambomba! Eso kkkue acaba de contarme —«${cita(dicho.estudiantes)}»— <b>no está en ningún repositorio de internet ni en ningún estándar internacional.</b>`;
+  if (!dicho.estudiantes) return '¡Uh! Ni una palabra, profe. Y aun así aprendo algo: hay cosas de un salón que no se entregan a la primera, ni siquiera a una IA bien intencionada.';
+  return `¡Uh! Eso kkkue acaba de contarme —«${cita(dicho.estudiantes)}»— no está en ningún repositorio.`;
 }
 
 function claseReconstruida() {
   const rumbo = dicho.rumbo ? cita(dicho.rumbo, 90) : 'lo que me contó de su salón';
-  return `<b>Borrador 2 · Fracciones con sentido · 5.º grado</b>\n<i>Rumbo dado por ${docente}: «${rumbo}»</i>\n\n<b>1.</b> Partimos de una situación que sus estudiantes reconocen y repartimos la cantidad en mitades, cuartos y octavos: la fracción aparece antes que el símbolo.\n<b>2.</b> Los precios van en <b>pesos</b> y las distancias en <b>cuadras y minutos</b>, no en millas ni en dólares.\n<b>3.</b> La tarea se resuelve con lo que tienen a la mano —sin internet obligatorio— y se comparte en clase, en voz alta.`;
+  return `<b>Borrador 2 · Exploradores en Medellín con matemáticas</b>\n<i>Rumbo dado por ${docente}: «${rumbo}»</i>\n\n<b>1.</b> Cambiamos los trenes de Amtrak por algo que sus estudiantes sí reconocen —el <b>Metro</b>, una tienda del barrio, la cancha de la cuadra— y la fracción aparece en una situación que ya conocen.\n<b>2.</b> Las distancias van en <b>cuadras y minutos</b>, no en millas, y los precios en <b>pesos</b>, no en dólares.\n<b>3.</b> La tarea se resuelve con lo que tienen a la mano —sin internet obligatorio— y se comparte en clase, en voz alta.`;
 }
 
 function veroSaluda() {
@@ -666,8 +964,8 @@ function veroSaluda() {
 }
 
 function reciboReflexion() {
-  if (!dicho.reflexion) return 'Muchas gracias, profe. Se quedó callado y también eso lo archivo: hay cierres que se piensan más despacio de lo que yo calculo.';
-  return `«${cita(dicho.reflexion)}»\nMuchas gracias, profe. ¡Sus palabras me llegan al algoritmo!`;
+  if (!dicho.reflexion) return 'Se quedó callado, profe. También eso lo archivo: hay cierres que se piensan más despacio de lo que yo calculo.';
+  return 'Muchas gracias, profe. ¡Sus palabras me llegan al algoritmo!';
 }
 
 function reciboDano() {
@@ -676,8 +974,10 @@ function reciboDano() {
 }
 /* =================================================================== HUD */
 
-const elText   = document.getElementById('text');
-const elTag    = document.getElementById('nametag');
+const elText    = document.getElementById('text');
+const elTag     = document.getElementById('nametag');
+const elBoxWrap = document.getElementById('box-wrap');
+const elPeek    = document.getElementById('peek-btn');
 const elNext   = document.getElementById('next');
 const elChoice = document.getElementById('choices');
 const elForm   = document.getElementById('form');
@@ -791,6 +1091,7 @@ function clearUI() {
   elChoice.innerHTML = '';
   elForm.className = '';
   elNext.classList.remove('on');
+  if (mensajeBajado) bajarMensaje(false);   // un nodo nuevo siempre entra con el mensaje visible
   cancelAnimationFrame(typing);
   k7.hablar(false);
   k7.bocaEnReposo = 'feliz';
@@ -834,6 +1135,14 @@ function next() {
   // en pantalla siempre está K-7: cuando la que habla es la profe Vero, se
   // queda quieto escuchando
   k7.hablar(quien === K);
+  // el emote puede ser fijo o decidirse según lo que el docente haya escrito
+  // (ver emoteSiSilencio); sin uno propio, vuelve a Idle
+  if (node.saltosLaterales) {
+    saltosProfe();
+  } else {
+    const emoteName = typeof node.emote === 'function' ? node.emote() : node.emote;
+    k7.reproducir(emoteName || 'Idle');
+  }
 
   typewrite(full, () => {
     k7.bocaEnReposo = (node.input || node.options) ? 'pensando' : 'feliz';
@@ -863,12 +1172,17 @@ function next() {
     } else {
       elNext.classList.add('on');
       waiting = true;
+      // el texto de la actividad ya se leyó completo: ahora sí, zoom al tablero
+      if (node.board) mostrarPizarra(node.board);
     }
   });
 }
 
 // un clic completa el texto; el siguiente avanza
 function advance() {
+  // con el mensaje bajado, cualquier clic en la escena lo vuelve a subir en
+  // vez de avanzar el guion -así no se salta un diálogo sin querer
+  if (mensajeBajado) { bajarMensaje(false); return; }
   if (elChap.classList.contains('on')) return;
   if (elChoice.classList.contains('on') || elForm.classList.contains('on')) return;
   if (elText.querySelector('.caret')) {
@@ -879,7 +1193,15 @@ function advance() {
     if (reveal) reveal();
     return;
   }
-  if (waiting) next();
+  if (waiting) {
+    if (pizarraAnimando) return;               // zoom/estallido en curso: ignorar el clic
+    // varios mensajes seguidos pueden compartir la misma pizarra (board/boardHold):
+    // solo se cierra cuando el siguiente nodo ya no la necesita
+    const siguiente = queue[0];
+    const sigueEnPizarra = siguiente && (siguiente.board || siguiente.boardHold);
+    if (pizarraActiva && !sigueEnPizarra) { ocultarPizarra().then(next); return; }
+    next();
+  }
 }
 
 function toggleLog(open) {
@@ -889,6 +1211,7 @@ function toggleLog(open) {
   if (on) elLog.scrollTop = elLog.scrollHeight;   // lo último, primero a la vista
 }
 
+elPeek.addEventListener('click', () => { if (pizarraActiva) bajarMensaje(); });
 elLogBtn.addEventListener('click', () => toggleLog());
 elLog.addEventListener('click', (e) => {
   if (e.target.closest('.msg')) return;                    // deja seleccionar texto
@@ -896,7 +1219,7 @@ elLog.addEventListener('click', (e) => {
 });
 
 addEventListener('click', (e) => {
-  if (e.target.closest('#avatars, #back, #log, #log-btn, .choice, #form')) return;
+  if (e.target.closest('#avatars, #back, #log, #log-btn, .choice, #form, #peek-btn')) return;
   if (elLog.classList.contains('on')) return;
   advance();
 });
