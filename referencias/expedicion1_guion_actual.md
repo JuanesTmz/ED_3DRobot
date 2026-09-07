@@ -27,15 +27,15 @@
 **K-7 dice**, en mensajes seguidos:
 1. Buenas tardes, profe. ¿Me conoce? Soy **K-7**.
 2. Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es **K-7**.
-   No lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.
-3. Espero que no le incomode, pero tengo algo que decirle: quiero ser como usted.
+   No lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana. `{{Emote: K7_HighFive}}`
+3. Espero que no le incomode, pero tengo algo que decirle: quiero ser como usted. `{{Emote: K7_Triste con ojos tristes pero boca normal}}`
 4. Le podrá parecer excesivo, más si no me conoce, pero verá: tengo acceso a una cantidad enorme de información, ni usted podría adivinar cuánta.
 5. Pero por más que acumulo y acumulo, nunca será suficiente para ser docente.
-6. ¡Por eso tiene mi admiración!
+6. ¡Por eso tiene mi admiración! `{{Emote: K7_Saltito}}`
 7. Y por favor, no se ría de mí, pero *me gustaría ser profe*, como usted.
 
 **[Campo abierto: `presentacion`]**
-Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este». Por simple equidad, ¿le parece bien si me cuenta **cuál es su nombre** y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?
+Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este». `{{Emote: K7_Pensando con boca normal}}` Por simple equidad, ¿le parece bien si me cuenta **cuál es su nombre** y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?
 Placeholder: *Su nombre y algo importante sobre usted…*
 
 *(De aquí también se saca el nombre con el que K-7 le habla al docente el resto de la charla.)*
@@ -52,9 +52,9 @@ Placeholder: *Su nombre y algo importante sobre usted…*
   Es poco lo que dice, y aun así no había en toda la red una sola línea que me lo dijera. ¡Recáspita!»
 
 **K-7 dice**, seguido:
-1. Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de **quinto grado**. **Medellín**. ¡Un clásico! ¿Eh?
-2. ¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica está bien, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.
-3. ¡Puf! Los humanos son tan complicados e impredecibles…
+1. `{{Emote: K7_Highfive}}`Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de **quinto grado**. **Medellín**. ¡Un clásico! ¿Eh?
+2. `{{Emote: K7_Pensando con boca normal}}`¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica está bien, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.
+3. `{{Emote: K7_Triste con boca normal}}`¡Puf! Los humanos son tan complicados e impredecibles…
 
 `{{Muestra imagen en tablero: Actividad1.1.png}}`
 K-7 dice, ya con la pizarra abierta: «Aquí está el borrador en pantalla.»
@@ -77,12 +77,12 @@ K-7 dice, ya con la pizarra abierta: «Aquí está el borrador en pantalla.»
 ## 1.2 — K-7 reconoce el problema de contexto
 
 **K-7 dice**, seguido:
-1. ¿Sabe algo? Cuando me pongo nervioso se me salen las «k».
+1. `{{Emote: K7_triste}}`¿Sabe algo? Cuando me pongo nervioso se me salen las «k».
 2. Tal vez kkkkuando señala el contexto o la conexión puede que esté relacionado con que el ejercicio se desarrolla en Estados Unidos, en millas, y en un salón de clases muy diferente a lo que se enkkkkuentra en Medellín.
-3. `{{Emote: K7_Pensando}}` Y ya que ando reconociendo problemas, debo decirle otra kkkkosa.
+3. `{{Emote: K7_Pensando hasta el mensaje 6}}` Y ya que ando reconociendo problemas, debo decirle otra kkkkosa.
 4. Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real.
 5. ¿Qué tienen que ver con el Metro, o cómo las usa una mamá que va a hacer merkkkkado?
-6. Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… *¿sentir?*
+6. Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… *¿sentir?* `{{ termina el Emote: K7_Pensando anterior}}`
 7. Profe (¿puedo decirle profe?), dígame algo…
 8. ¡Profe! ¡Já! Es que se siente tan bien decirle «profe».
 9. `{{Emote: K7_Saltito x2 — un saltito ladeado a la izquierda y otro idéntico a la derecha}}` Profe, profe, profe, profe, profe, profe, profe, profe, profe…
@@ -126,7 +126,7 @@ Placeholder: *Quiénes son sus estudiantes…*
 
 **[Campo abierto: `rumbo`]**
 Deme usted el rumbo, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.
-Aquí viene mi lluvia de preguntas: ¿quiénes son sus estudiantes? ¿qué necesitan? ¿dónde viven? ¿qué les interesa? ¿qué problemas tienen?
+`{{Emote: K7_Pensando}}`Aquí viene mi lluvia de preguntas: ¿quiénes son sus estudiantes? ¿qué necesitan? ¿dónde viven? ¿qué les interesa? ¿qué problemas tienen?
 Profe, incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.
 Placeholder: *El rumbo de la clase: situación, enfoque, intereses…*
 
@@ -140,12 +140,12 @@ Placeholder: *El rumbo de la clase: situación, enfoque, intereses…*
 > **Borrador 2 · Exploradores en Medellín con matemáticas**
 > *Rumbo dado por [nombre]: «[cita, hasta 90 caracteres]»*
 >
-> 1. Cambiamos los trenes de Amtrak por algo que sus estudiantes sí reconocen —el **Metro**, una tienda del barrio, la cancha de la cuadra— y la fracción aparece en una situación que ya conocen.
+> 1.Cambiamos los trenes de Amtrak por algo que sus estudiantes sí reconocen —el **Metro**, una tienda del barrio, la cancha de la cuadra— y la fracción aparece en una situación que ya conocen.
 > 2. Las distancias van en **cuadras y minutos**, no en millas, y los precios en **pesos**, no en dólares.
 > 3. La tarea se resuelve con lo que tienen a la mano —sin internet obligatorio— y se comparte en clase, en voz alta.
 
 `{{Vuelve a K7}}`
-1. `{{Emote: K7_Saltito}}` ¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. **Esto ya es otra cosa.**
+1. `{{Emote: K7_highfive}}`  ¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. **Esto ya es otra cosa.**
 2. Esta ya no es mi clase, profe. Es la suya. ¿La llevarías al salón?
 3. `{{Emote: K7_Saltito}}` ¡!
 

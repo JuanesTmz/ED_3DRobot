@@ -811,20 +811,20 @@ const script = [
 
   /* --------------------------------------------------------------- 1.1 */
   say('Buenas tardes, profe. ¿Me conoce? Soy <b>K-7</b>.'),
-  say('Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es <b>K-7</b>.\nNo lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.'),
-  say('Espero que no le incomode, pero tengo algo que decirle: quiero ser como usted.'),
+  { ...say('Si lo lee en voz alta, puede sonar parecido a Q-7, incluso a C-7. Pero es <b>K-7</b>.\nNo lo olvide, por favor. K, como la vitamina K. Y el 7, como los días de la semana.'), emote: 'K7_HighFive' },
+  { ...say('Espero que no le incomode, pero tengo algo que decirle: quiero ser como usted.'), emote: 'K7_Triste' },
   say('Le podrá parecer excesivo, más si no me conoce, pero verá: tengo acceso a una cantidad enorme de información, ni usted podría adivinar cuánta.'),
   say('Pero por más que acumulo y acumulo, nunca será suficiente para ser docente.'),
-  say('¡Por eso tiene mi admiración!'),
+  { ...say('¡Por eso tiene mi admiración!'), emote: 'K7_Saltito' },
   say('Y por favor, no se ría de mí, pero <i>me gustaría ser profe</i>, como usted.'),
-  ask('Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este». Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?',
-      'presentacion', 'Su nombre y algo importante sobre usted…'),
+  { ...ask('Ahora sabe algo esencial de mí, y no cualquier cosa. La gente poco va por ahí saludándose y diciendo: «mi gran sueño es este». Por simple equidad, ¿le parece bien si me cuenta <b>cuál es su nombre</b> y algo de usted que considere importante? Por ejemplo: ¿cuál es su gran sueño?',
+      'presentacion', 'Su nombre y algo importante sobre usted…'), emote: 'K7_Pensando' },
 
   /* ------------------------------------------------- 1.1 continuación */
   { ...dyn(saludo), emote: emoteSiSilencio('presentacion') },
-  say('Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de <b>quinto grado</b>. <b>Medellín</b>. ¡Un clásico! ¿Eh?'),
-  say('¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica está bien, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.'),
-  say('¡Puf! Los humanos son tan complicados e impredecibles…'),
+  { ...say('Ahora, para no quedarme solo en intenciones, me tomé la libertad de preparar mi primer ejercicio de clase. Es de matemáticas. Estudiantes de <b>quinto grado</b>. <b>Medellín</b>. ¡Un clásico! ¿Eh?'), emote: 'K7_HighFive' },
+  { ...say('¿Cómo lo hice? Esto es importante: revisé miles de planes de estudio en la web y calculé un caso impecable. Sé que mi lógica está bien, pero en los primeros análisis de viabilidad que he hecho parece que no funciona.'), emote: 'K7_Pensando' },
+  { ...say('¡Puf! Los humanos son tan complicados e impredecibles…'), emote: 'K7_Triste' },
 
   /* {{Muestra imagen en tablero Actividad1.1.png}} */
   { ...say('Aquí está el borrador en pantalla.'), board: 'img/Actividad1.1.png' },
@@ -841,12 +841,12 @@ const script = [
   ]),
 
   /* --------------------------------------------------------------- 1.2 */
-  say('¿Sabe algo? Cuando me pongo nervioso se me salen las «k».'),
+  { ...say('¿Sabe algo? Cuando me pongo nervioso se me salen las «k».'), emote: 'K7_Triste' },
   say('Tal vez kkkkuando señala el contexto o la conexión puede que esté relacionado con que el ejercicio se desarrolla en Estados Unidos, en millas, y en un salón de clases muy diferente a lo que se enkkkkuentra en Medellín.'),
   { ...say('Y ya que ando reconociendo problemas, debo decirle otra kkkkosa.'), emote: 'K7_Pensando' },
-  say('Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real.'),
-  say('¿Qué tienen que ver con el Metro, o cómo las usa una mamá que va a hacer merkkkkado?'),
-  say('Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… <i>¿sentir?</i>'),
+  { ...say('Yo sé operar frakkkk-ciones, pero no sé qué son ni para qué sirven las matemáticas, ya sabe, en la vida real.'), emote: 'K7_Pensando' },
+  { ...say('¿Qué tienen que ver con el Metro, o cómo las usa una mamá que va a hacer merkkkkado?'), emote: 'K7_Pensando' },
+  { ...say('Es que usted ve cosas que ningún algoritmo puede procesar, o mejor debería decir… <i>¿sentir?</i>'), emote: 'K7_Pensando' },
   say('Profe (¿puedo decirle profe?), dígame algo…'),
   say('¡Profe! ¡Já! Es que se siente tan bien decirle «profe».'),
   { ...say('Profe, profe, profe, profe, profe, profe, profe, profe, profe…'), saltosLaterales: true },
@@ -867,14 +867,14 @@ const script = [
   say('Yo puedo procesar miles de datos, pero no tengo ojos en el aula ni kkkriterio pedagógico.'),
   say('Por eso es un error kkkuando pretendo dar una clase por mi cuenta, ya sabe, sin un profe.'),
   { ...say('Hagámoslo bien esta vez, trabajemos juntos. ¿Se anima?'), emote: 'K7_HighFive' },
-  ask('Deme usted el rumbo, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.\nAquí viene mi lluvia de preguntas: ¿quiénes son sus estudiantes? ¿qué necesitan? ¿dónde viven? ¿qué les interesa? ¿qué problemas tienen?\nProfe, incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.',
-      'rumbo', 'El rumbo de la clase: situación, enfoque, intereses…'),
+  { ...ask('Deme usted el rumbo, dígame qué situación o enfoque usar, y yo me encargo de reconstruir la actividad de los fraccionarios.\nAquí viene mi lluvia de preguntas: ¿quiénes son sus estudiantes? ¿qué necesitan? ¿dónde viven? ¿qué les interesa? ¿qué problemas tienen?\nProfe, incluya todo lo que considere pertinente, que yo haré mi mejor esfuerzo.',
+      'rumbo', 'El rumbo de la clase: situación, enfoque, intereses…'), emote: 'K7_Pensando' },
 
   /* ---------------------------------------------- 1.5 · {{zoom a tablero}} */
   { ...dyn(claseReconstruida), board: 'img/Actividad1.2.png' },
 
   /* {{Zoom out a K7 de nuevo}} */
-  { ...say('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. <b>Esto ya es otra cosa.</b>'), emote: 'K7_Saltito' },
+  { ...say('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. <b>Esto ya es otra cosa.</b>'), emote: 'K7_HighFive' },
   say('Esta ya no es mi clase, profe. Es la suya. ¿La llevarías al salón?'),
   { ...say('¡!'), emote: 'K7_Saltito' },
   beat('Profe, deme un momento antes de responderme. Quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo: la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para ayudarnos a recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
@@ -1219,7 +1219,7 @@ elLog.addEventListener('click', (e) => {
 });
 
 addEventListener('click', (e) => {
-  if (e.target.closest('#avatars, #back, #log, #log-btn, .choice, #form, #peek-btn')) return;
+  if (e.target.closest('#avatars, #back, #log, #log-btn, .choice, #form, #peek-btn, #chapter')) return;
   if (elLog.classList.contains('on')) return;
   advance();
 });
