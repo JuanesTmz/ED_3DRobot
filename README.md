@@ -1,26 +1,34 @@
 # ED 3D Robot
 
-Robot low-poly riggeado y animado, con un visor web hecho en three.js.
+Robot low-poly riggeado y animado (K-7), con un visor web hecho en three.js.
 
 ## Contenido
 
 ```
 docs/
-  index.html            visor
+  index.html            visor: 3 modelos, 3 paletas, 6 poses
   charla.html           la escena de conversacion con K-7
-  robot.glb             lo que carga el visor: 1 armature + 2 mallas + Idle
-  robot_rigged.glb      solo el modelo 1; es la fuente del rig
+  character/            K-7 empaquetado para reutilizarse en otro proyecto:
+                         assets (robot/bocas/ojos.glb, paleta.js) + el
+                         modulo k7.js que index.html y charla.html comparten.
+                         Ver docs/character/README.md.
   implementos.glb       mesa, silla y tablero del fondo de la charla
-  bocas.glb             las cuatro bocas de K-7
+  robot_rigged.glb      solo el Modelo1; es la fuente del rig
   vendor/three/         three.js 0.169 (sin CDN)
 
-rig_cubehead.py         riggea el CubeHead y genera docs/robot.glb
+rig_cubehead.py         riggea el CubeHead y genera docs/character/robot.glb
+build_bocas.py          quita la sonrisa soldada y genera docs/character/bocas.glb
+build_modelo3.py        agrega el Modelo3 (cubo girado) a docs/character/robot.glb
+build_ojos.py           quita los ojos soldados y genera docs/character/ojos.glb
 build_implementos.py    prepara los muebles y genera docs/implementos.glb
-build_bocas.py          quita la sonrisa soldada y genera docs/bocas.glb
-robot_cubehead_solo.blend   piezas del modelo 2, sin rig
+robot_cubehead_solo.blend   piezas del Modelo2, sin rig
 ImplementosFondo.blend      mesa, silla y tablero en bruto
-bocas.blend                 las cuatro bocas en bruto
+referencias/                fuentes .blend de bocas, ojos y poses (sin comprometer)
 ```
+
+Ver `docs/character/README.md` para el manual de K-7: manifiesto de assets,
+convención de huesos, tabla de gestos, formato de paleta, y cómo montarlo en
+un proyecto three.js nuevo.
 
 ## El fondo de la charla
 
@@ -38,38 +46,39 @@ El reparto se recalcula en cada encuadre (`repartirProps`): en movil el
 encuadre deja ver unas 3 unidades de ancho y en escritorio mas del doble, asi
 que con posiciones fijas los muebles o se salen de cuadro o se amontonan.
 
-## La boca de K-7
+## Boca y ojos intercambiables
 
-El personaje traia la sonrisa incrustada en la malla, soldada al hueso `head`
-con peso rigido, asi que no podia cambiar de gesto. `build_bocas.py` se la
-quita a los dos modelos -relleno y cascara de contorno, que si se queda deja
-la boca vieja dibujada en hueco- y le pone a la cara del CubeHead las
-baldosas que le faltaban detras de ella, que sin la sonrisa se veian como
-rendijas. Luego exporta las cuatro bocas de `bocas.blend` a
-`docs/bocas.glb`: `feliz`, `abierta`, `pensando` y `sorpresa`.
+El personaje traía la sonrisa y los ojos incrustados en la malla, soldados
+al hueso `head` con peso rígido, así que no podía cambiar de gesto.
+`build_bocas.py` y `build_ojos.py` se los quitan a los tres modelos -relleno
+y cáscara de contorno, que si se queda deja el gesto viejo dibujado en
+hueco- y exportan las mallas sueltas a `docs/character/bocas.glb` y
+`docs/character/ojos.glb`. Se cuelgan del mismo hueso `head` en tiempo de
+ejecución (no forman parte del skin), así que siguen a la cabeza sin
+animarse con ella.
 
 ```bash
 blender -b -P build_bocas.py
+blender -b -P build_modelo3.py
+blender -b -P build_ojos.py
 ```
 
-El visor tambien la usa: `index.html` cuelga la boca de reposo del mismo
-hueso, asi que los dos modelos tienen boca antes de entrar a la charla.
+Toda la lógica de qué boca/ojos van con cada modelo y cada gesto vive en
+`docs/character/k7.js`, compartida por `index.html` y `charla.html`. Ver
+`docs/character/README.md` para el detalle completo.
 
-En `charla.html` las bocas cuelgan del hueso `head` -siguen a la cabeza sin
-formar parte del skin- y hablar es encender una u otra al ritmo de las
-silabas. Salen normalizadas del script y cada modelo les da su sitio y su
-tamano, porque tienen la cara a distinta altura y anchura.
+## Los tres modelos
 
-## Los dos modelos
+`robot.glb` lleva las tres mallas (`Modelo1`, `Modelo2`, `Modelo3`)
+skinneadas al **mismo** armature, con las mismas 6 animaciones. Comparten
+rig y animación: cambiar de modelo en el visor solo alterna la visibilidad
+de una malla u otra, sin recargar nada y sin reiniciar la animación.
 
-`robot.glb` lleva las dos mallas (`Modelo1` y `Modelo2`) skinneadas al **mismo**
-armature, con una sola acción `Idle`. Comparten rig y animación: cambiar de
-modelo en el visor solo alterna la visibilidad de una malla u otra, sin recargar
-nada y sin reiniciar la animación.
-
-El CubeHead se pudo enganchar al rig original porque usa las mismas
-proporciones y la misma convención de nombres por pieza (`arm_upper_L`,
-`coat_flap_R`, …), así que cada pieza se asigna a su hueso por prefijo.
+El CubeHead (`Modelo2`) se pudo enganchar al rig original porque usa las
+mismas proporciones y la misma convención de nombres por pieza
+(`arm_upper_L`, `coat_flap_R`, …), así que cada pieza se asigna a su hueso
+por prefijo. `Modelo3` es el mismo CubeHead con la cabeza girada sobre una
+esquina (`build_modelo3.py`).
 
 ## Regenerar el modelo
 
@@ -78,7 +87,7 @@ blender -b robot_cubehead_solo.blend -P rig_cubehead.py
 ```
 
 Lee `docs/robot_rigged.glb` para sacar el esqueleto y la animación, y escribe
-`docs/robot.glb`.
+`docs/character/robot.glb`.
 
 ## Ver en local
 
@@ -103,7 +112,9 @@ Guardar y esperar un par de minutos.
 
 Arrastrar para orbitar, rueda para zoom. Los botones de abajo pausan la
 animación, paran el giro automático, muestran el esqueleto y reencuadran la
-cámara.
+cámara. La fila de arriba de esos botones cambia de pose (Reposo, Pensando,
+Saltito, Triste, HighFive, Caminando).
 
-Arriba a la derecha se cambia entre *Modelo 1* y *Modelo 2*. La cámara no se
-mueve al cambiar y la animación sigue corriendo: es el mismo rig.
+Arriba a la derecha se cambia entre los 3 modelos y las 3 paletas. La
+cámara no se mueve al cambiar de modelo y la animación sigue corriendo: es
+el mismo rig.
