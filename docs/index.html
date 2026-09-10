@@ -29,11 +29,12 @@
   }
   h1 span{color:var(--magenta)}
   .sub{font-size:13px;opacity:.55}
-  #link-charla{
+  #links{display:flex;flex-direction:column;gap:3px}
+  #link-charla,#link-comic{
     pointer-events:auto;color:var(--magenta);opacity:.9;
     text-decoration:none;font-weight:600;
   }
-  #link-charla:hover{text-decoration:underline}
+  #link-charla:hover,#link-comic:hover{text-decoration:underline}
 
   #panel{
     position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
@@ -50,8 +51,18 @@
   button:hover{background:rgba(39,52,74,.07)}
   button[aria-pressed="true"]{background:var(--magenta);color:#fff}
 
-  #models{
+  #personajes{
     position:fixed;top:18px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #personajes button{padding:7px 14px;font-size:12px}
+  #personajes button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+
+  #models{
+    position:fixed;top:64px;right:26px;
     display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
     background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
     border:1px solid rgba(39,52,74,.10);
@@ -61,7 +72,7 @@
   #models button[aria-pressed="true"]{background:var(--teal)}
 
   #palettes{
-    position:fixed;top:64px;right:26px;
+    position:fixed;top:110px;right:26px;
     display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
     background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
     border:1px solid rgba(39,52,74,.10);
@@ -137,11 +148,28 @@
   @media (max-width:560px){
     #hint{display:none}
     header{padding:16px 18px}
+    /* en pantallas angostas (~320-340px) "low-poly - three.js" queda justo
+       debajo de la hamburguesa de poses (fixed, arriba a la derecha) y se
+       le monta encima: es puro adorno, se quita en vez de perseguir el hueco.
+       Ojo: los links de #links tambien llevan class="sub" (mismo estilo de
+       texto discreto) -por eso el selector va con el hijo directo de header,
+       si no tambien los apaga a ellos */
+    header > .sub{display:none}
+    /* el link de cómic sumó una segunda línea a #links: al ancho de un
+       celular ya cabía en la misma fila que "low-poly - three.js" y quedaba
+       tapado por la hamburguesa de poses. Se fuerza a su propia fila para
+       que quede siempre debajo, nunca al lado. */
+    #links{flex-basis:100%}
     /* left+translateX(-50%) para centrar. width:max-content porque, fijo con
        left+bottom+transform a la vez, Chrome encoge el shrink-to-fit por
-       debajo del ancho real y parte el texto de los botones en dos lineas */
-    #models{top:auto;bottom:174px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
-    #palettes{top:auto;bottom:130px;left:50%;right:auto;transform:translateX(-50%);width:max-content}
+       debajo del ancho real y parte el texto de los botones en dos lineas.
+       max-width+flex-wrap quedan solo de red de seguridad para telefonos
+       diminutos: el ancho real ya se resuelve abajo (ver #palettes) sin que
+       nadie tenga que envolver a una segunda fila -eso rompía el apilado por
+       bottom en px fijos con #models y #panel, que asume una sola fila. */
+    #personajes{top:auto;bottom:218px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
+    #models{top:auto;bottom:174px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
+    #palettes{top:auto;bottom:130px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
     /* en movil los 6 botones de #anims no caben en una fila y quedan
        ilegibles/imposibles de tocar: se reemplazan por una hamburguesa.
        Va arriba, no abajo: ahi ya se amontonan #models/#palettes/#panel y
@@ -156,6 +184,18 @@
       box-shadow:0 6px 22px rgba(39,52,74,.13);
     }
   }
+
+  /* "Paleta 1/2/3" completo mide ~354px de ancho -fijo, no depende del
+     viewport-, y ya no entra de sobra en los ~360-412px de la mayoría de
+     celulares (Android de gama media, iPhone SE/mini). En vez de partirlo en
+     dos filas -eso desalineaba el apilado con #models/#panel de arriba-, se
+     apaga el texto y queda solo el muestrario de color, igual que ya hacen
+     estos mismos botones en charla.html. El nombre sigue disponible por
+     title= al mantener pulsado o con lector de pantalla. */
+  @media (max-width:420px){
+    #palettes .pal-label{display:none}
+    #palettes button{padding:7px 10px}
+  }
 </style>
 </head>
 <body>
@@ -165,8 +205,16 @@
 <header>
   <h1>ED <span>3D Robot</span></h1>
   <div class="sub">low-poly &middot; three.js</div>
-  <a class="sub" id="link-charla" href="./charla.html">hablar con K-7 →</a>
+  <div id="links">
+    <a class="sub" id="link-charla" href="./charla.html">hablar con K-7 →</a>
+    <a class="sub" id="link-comic" href="./comic.html">ver cómic →</a>
+  </div>
 </header>
+
+<div id="personajes">
+  <button data-personaje="k7" aria-pressed="true">K-7</button>
+  <button data-personaje="profesora" aria-pressed="false">Profesora</button>
+</div>
 
 <div id="models">
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
@@ -175,17 +223,17 @@
 </div>
 
 <div id="palettes">
-  <button data-pal="uno" aria-pressed="true">
+  <button data-pal="uno" aria-pressed="true" title="Paleta 1">
     <span class="sw"><i style="--c:#f48dbd"></i><i style="--c:#cae376"></i><i style="--c:#a0cbdf"></i><i style="--c:#fbe05d"></i></span>
-    Paleta 1
+    <span class="pal-label">Paleta 1</span>
   </button>
-  <button data-pal="dos" aria-pressed="false">
+  <button data-pal="dos" aria-pressed="false" title="Paleta 2">
     <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
-    Paleta 2
+    <span class="pal-label">Paleta 2</span>
   </button>
-  <button data-pal="tres" aria-pressed="false">
+  <button data-pal="tres" aria-pressed="false" title="Paleta 3">
     <span class="sw"><i style="--c:#d852db"></i><i style="--c:#4fc180"></i><i style="--c:#50aed8"></i><i style="--c:#ead34e"></i></span>
-    Paleta 3
+    <span class="pal-label">Paleta 3</span>
   </button>
 </div>
 
@@ -253,6 +301,7 @@ import { GLTFLoader }        from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls }     from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { K7, conectarBotones } from './character/k7.js';
+import { Profesora } from './character/profesora.js';
 
 // ?dev=1 activa el panel de ajuste manual de huesos (mover/rotar con gizmo)
 const DEV = new URLSearchParams(location.search).get('dev') === '1';
@@ -334,6 +383,35 @@ const k7 = new K7({
   onError: fail,
   onAnimCambio: syncAnimButtons,   // tambien cubre el retorno solo a Idle
 });
+
+const profesora = new Profesora({
+  THREE, GLTFLoader, base: './character',
+  onError: fail,
+  onAnimCambio: syncAnimButtons,
+});
+
+// Botones de pose por personaje: K-7 tiene sus 6, la Profesora sus 5 gestos
+// (ver character/profesora.js). #anims/#anims-menu se rellenan de nuevo cada
+// vez que se cambia de personaje, en vez de llevar el doble de botones fijos.
+const PERSONAJES = {
+  k7: {
+    instancia: k7,
+    anims: [
+      ['Idle', 'Reposo'], ['K7_Pensando', 'Pensando'], ['K7_Saltito', 'Saltito'],
+      ['K7_Triste', 'Triste'], ['K7_HighFive', 'HighFive'], ['K7_Caminando', 'Caminando'],
+    ],
+  },
+  profesora: {
+    instancia: profesora,
+    anims: [
+      ['Profesora_Idle', 'Reposo'], ['Profesora_Escribiendo', 'Escribiendo'],
+      ['Profesora_Eureka', 'Eureka'], ['Profesora_Mirando', 'Mirando'],
+      ['Profesora_Caminando', 'Caminando'],
+    ],
+  },
+};
+let personajeActivo = 'k7';
+const activo = () => PERSONAJES[personajeActivo].instancia;
 
 // ---------------------------------------------------------- modo ?dev=1 ----
 // Gizmo para mover/rotar un hueso a mano y leer los numeros resultantes -el
@@ -445,8 +523,13 @@ function showMesh(name) {
 }
 
 // Las tres paletas valen para los tres modelos: cada material tiene un rol y
-// cada paleta da un color por rol (ver character/paleta.js).
-conectarBotones('#palettes button', (id) => k7.aplicarPaletaPersonaje(id));
+// cada paleta da un color por rol (ver character/paleta.js). La Profesora se
+// suma solo con la cara: sus ojos y su boca comparten los materiales de K-7,
+// asi que los dos los tienen del mismo color en las tres paletas.
+conectarBotones('#palettes button', (id) => {
+  k7.aplicarPaletaPersonaje(id);
+  profesora.aplicarPaletaCara(id);
+});
 
 // deja la camara a una distancia proporcional al tamano del modelo
 function frame(obj) {
@@ -468,25 +551,70 @@ function resetView() {
   controls.update();
 }
 
-await k7.cargar({
-  onProgress: (frac) => { barEl.style.width = (frac * 100) + '%'; },
-});
+const modelsEl = document.getElementById('models');
+const animsEl = document.getElementById('anims');
+const animMenuEl = document.getElementById('anims-menu');
+const animBurger = document.getElementById('anims-burger');
 
-if (!k7.model) {
+// #anims/#anims-menu se reconstruyen con los botones del personaje activo
+// (ver PERSONAJES mas arriba) en vez de llevar el doble fijo en el HTML.
+function renderAnimButtons(id) {
+  const html = PERSONAJES[id].anims
+    .map(([anim, label], i) => `<button data-anim="${anim}" aria-pressed="${i === 0}">${label}</button>`)
+    .join('');
+  animsEl.innerHTML = html;
+  animMenuEl.innerHTML = html;
+  animBtns.length = 0;
+  animBtns.push(...document.querySelectorAll('#anims button, #anims-menu button'));
+  for (const b of animBtns) b.addEventListener('click', () => {
+    activo().reproducir(b.dataset.anim);
+    animMenuEl.hidden = true;
+    animBurger.setAttribute('aria-expanded', 'false');
+  });
+}
+
+// K-7 tiene 3 modelos propios y la Profesora uno solo, así que ese panel se
+// apaga mientras ella esté activa. El de paletas se queda: aunque su ropa no
+// cambie, sus ojos y su boca sí siguen la paleta (ver aplicarPaletaCara).
+function mostrarPersonaje(id) {
+  if (!PERSONAJES[id].instancia.model) return;
+  personajeActivo = id;
+  k7.model.visible = (id === 'k7');
+  profesora.model.visible = (id === 'profesora');
+  if (skeletonHelper) skeletonHelper.visible = (id === 'k7') && btnBones.getAttribute('aria-pressed') === 'true';
+  modelsEl.style.display = id === 'k7' ? '' : 'none';
+  for (const b of personajeBtns) b.setAttribute('aria-pressed', String(b.dataset.personaje === id));
+  renderAnimButtons(id);
+  frame(activo().model);
+}
+
+const personajeBtns = [...document.querySelectorAll('#personajes button')];
+for (const b of personajeBtns) b.addEventListener('click', () => mostrarPersonaje(b.dataset.personaje));
+
+await Promise.all([
+  k7.cargar({ onProgress: (frac) => { barEl.style.width = (frac * 45) + '%'; } }),
+  profesora.cargar({ onProgress: (frac) => { barEl.style.width = (45 + frac * 45) + '%'; } }),
+]);
+
+if (!k7.model || !profesora.model) {
   loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
 } else {
   k7.agregarA(scene);
+  profesora.agregarA(scene);
+  profesora.model.visible = false;
+  profesora.aplicarPaletaCara(k7.paleta);   // arranca con la misma que K-7
 
   skeletonHelper = new THREE.SkeletonHelper(k7.model);
   skeletonHelper.visible = false;
   skeletonHelper.material.linewidth = 2;
   scene.add(skeletonHelper);
 
-  // encuadra con las tres mallas visibles: comparten proporciones, asi que
-  // el encuadre vale para todas y no hay que recolocar la camara al
+  // encuadra con las tres mallas de K-7 visibles: comparten proporciones,
+  // asi que el encuadre vale para todas y no hay que recolocar la camara al
   // cambiar de modelo
   frame(k7.model);
   showMesh(k7.modelo);
+  renderAnimButtons('k7');
   setupDevMode();
 }
 
@@ -494,19 +622,10 @@ loaderEl.classList.add('done');
 
 for (const b of modelBtns) b.addEventListener('click', () => showMesh(b.dataset.mesh));
 
-const animBurger = document.getElementById('anims-burger');
-const animMenu = document.getElementById('anims-menu');
 animBurger.addEventListener('click', () => {
-  const abrir = animMenu.hidden;
-  animMenu.hidden = !abrir;
+  const abrir = animMenuEl.hidden;
+  animMenuEl.hidden = !abrir;
   animBurger.setAttribute('aria-expanded', String(abrir));
-});
-
-animBtns.push(...document.querySelectorAll('#anims button, #anims-menu button'));
-for (const b of animBtns) b.addEventListener('click', () => {
-  k7.reproducir(b.dataset.anim);
-  animMenu.hidden = true;
-  animBurger.setAttribute('aria-expanded', 'false');
 });
 
 const toggle = (btn, fn) => btn.addEventListener('click', () => {
@@ -521,7 +640,9 @@ toggle(btnPlay, (on, b) => {
 });
 toggle(document.getElementById('btn-spin'), (on) => { controls.autoRotate = on; });
 toggle(btnBones, (on) => {
-  if (skeletonHelper) skeletonHelper.visible = on;
+  // el esqueleto es el de K-7 (la Profesora no tiene helper propio): solo
+  // se ve si ademas es el personaje activo
+  if (skeletonHelper) skeletonHelper.visible = on && personajeActivo === 'k7';
 });
 document.getElementById('btn-reset').addEventListener('click', resetView);
 
@@ -533,7 +654,7 @@ addEventListener('resize', () => {
 
 renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
-  if (!paused) k7.actualizar(dt);
+  if (!paused) activo().actualizar(dt);
   controls.update();
   renderer.render(scene, camera);
 });

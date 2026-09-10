@@ -92,7 +92,9 @@ export const PALETAS = {
     naranja:  [0.784, 0.292, 0.054, 0.38],
     circuito: [0.078, 0.533, 0.216, 0.38],
     lente:    [0.586, 0.740, 0.859],
-    tinta:    [0.014, 0.050, 0.067, 1.0],
+    // el contorno es el mismo de la paleta 1: el casi negro que tenia antes
+    // (0.014, 0.050, 0.067) endurecia demasiado la silueta al lado del resto
+    tinta:    [0.153, 0.204, 0.278, 1.0],
   },
 };
 

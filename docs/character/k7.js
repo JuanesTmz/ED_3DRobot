@@ -13,6 +13,7 @@
 // nuevo).
 
 import { aplicarPaleta as aplicarPaletaBase } from './paleta.js';
+import { Habla } from './habla.js';
 export { aplicarPaleta, conectarBotones, PALETAS, ROL_DE_MATERIAL } from './paleta.js';
 
 // Los tres modelos comparten armature y las mismas 6 animaciones (Idle mas 5
@@ -95,14 +96,10 @@ export class K7 {
     this._bocaPuesta = null;
     this._ojosPuestos = null;
 
-    // hablar(): lipsync + cabeceo, usado por escenas de conversacion. Se
-    // activa solo si alguna vez se llama a hablar(), para no pisar la boca
-    // que puso aplicarGesto() en escenas que usan las 6 poses (index.html).
-    this._modoHabla = false;
-    this._habla = 0;
-    this._hablaObj = 0;
-    this._qGesto = new THREE.Quaternion();
-    this._eGesto = new THREE.Euler();
+    // hablar(): lipsync + cabeceo (ver habla.js). Se activa solo si alguna
+    // vez se llama a hablar(), para no pisar la boca que puso aplicarGesto()
+    // en escenas que usan las 6 poses (index.html).
+    this._habla = new Habla(THREE);
   }
 
   /** Carga robot.glb + bocas.glb + ojos.glb y monta la cara. */
@@ -137,6 +134,9 @@ export class K7 {
     this._paleta = id;
     if (this.model) aplicarPaletaBase(this.model, id);
   }
+
+  /** La paleta en curso. La Profesora la lee para pintar su cara igual. */
+  get paleta() { return this._paleta; }
 
   // ------------------------------------------------------------ boca/ojos --
 
@@ -186,16 +186,18 @@ export class K7 {
   /** Prende/apaga el lipsync y el cabeceo de conversacion (ver charla.html).
    *  La boca vuelve a bocaEnReposo cuando se apaga o el nivel baja del todo. */
   hablar(activo) {
-    this._modoHabla = true;
-    this._hablaObj = activo ? 1 : 0;
+    this._habla.encender(activo);
   }
 
   // --------------------------------------------------------------- frame ---
 
   /** Se llama una vez por fotograma, con el mismo dt que usa el mixer. */
   actualizar(dt) {
+    // el cabeceo se deshace antes de que el mixer escriba: si no, se acumula
+    // fotograma a fotograma (ver habla.js)
+    this._habla.restaurar();
     this.mixer?.update(dt);
-    if (this._modoHabla) this._gestoDeHabla(dt);
+    if (this._habla.activo) this.ponerBoca(this._habla.aplicar(dt, this.bocaEnReposo));
   }
 
   // =============================================================== interno
@@ -263,6 +265,7 @@ export class K7 {
 
     this.hCabeza = model.getObjectByName('head');
     this.hPecho = model.getObjectByName('chest');
+    this._habla.montar(this.hCabeza, this.hPecho);
     if (!this.hCabeza) this._onError('falta el hueso head en robot.glb: K-7 se queda sin cara');
 
     if (gltf.animations.length) {
@@ -322,39 +325,4 @@ export class K7 {
     }
   }
 
-  _gestoDeHabla(dt) {
-    // el nivel persigue al objetivo: sin esto el gesto arranca y para de golpe
-    this._habla += (this._hablaObj - this._habla) * Math.min(1, dt * 10);
-    this._elegirBoca();
-    if (!this.hCabeza || this._habla < 0.002) return;
-
-    const t = performance.now() * 0.001, n = this._habla;
-    const e = this._eGesto, q = this._qGesto;
-    // dos frecuencias que no encajan entre si, para que el cabeceo no se lea
-    // como un tic mecanico
-    e.set(
-      (Math.sin(t * 19.0) * 0.055 + Math.sin(t * 7.3) * 0.020) * n,   // asiente
-      Math.sin(t * 4.7) * 0.045 * n,                                  // se gira
-      Math.sin(t * 6.1) * 0.026 * n                                   // ladea
-    );
-    this.hCabeza.quaternion.multiply(q.setFromEuler(e));
-
-    if (this.hPecho) {   // el pecho acompana, con retardo y mucha menos amplitud
-      e.set(Math.sin(t * 19.0 - 0.9) * 0.013 * n, 0, 0);
-      this.hPecho.quaternion.multiply(q.setFromEuler(e));
-    }
-  }
-
-  /* La boca va aparte del gesto de cabeza: se elige aunque el nivel este a
-     cero, porque en reposo tambien tiene que mostrar algo. */
-  _elegirBoca() {
-    if (this._habla < 0.02) { this.ponerBoca(this.bocaEnReposo); return; }
-    const t = performance.now() * 0.001;
-    // silabas: una onda rectificada abre y cierra la boca unas tres veces por
-    // segundo. El seno de dentro le mete vaiven al ritmo y el de fuera cambia
-    // el tamano de cada silaba; sin esos dos queda un tictac a compas
-    const silaba = Math.max(0, Math.sin(t * 17.0 + Math.sin(t * 3.1)));
-    const s = silaba * (0.55 + 0.45 * Math.sin(t * 5.3) ** 2);
-    this.ponerBoca(s > 0.34 ? 'abierta' : 'feliz');
-  }
 }

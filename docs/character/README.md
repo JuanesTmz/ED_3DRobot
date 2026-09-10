@@ -4,13 +4,36 @@ Todo lo necesario para montar a K-7 en cualquier escena three.js: los tres
 modelos, sus 6 poses, las bocas y ojos intercambiables, y 3 paletas de color.
 Pensado para copiarse tal cual a otro proyecto.
 
+Esta carpeta tambien trae a la Profesora (`profesora.js` + `profesora.glb`):
+un solo modelo, sin paleta propia, con 5 animaciones —`Profesora_Idle` mas
+`Escribiendo`, `Eureka`, `Mirando` y `Caminando`—. Reusa la misma `bocas.glb`
+de K-7 (su .blend de origen no trae boca dibujada) colgada del hueso `head`
+con su propia constante de posicion/escala (`BOCA_PROFESORA`).
+
+Su rig sale de `rig_profesora.py` (raiz del repo, seccion "La Profesora"):
+20 huesos anatomicos mas un `p_<pieza>` por cada pieza que el autor recoloca
+aparte de su hueso.
+
+Su **cara** comparte materiales con K-7: los ojos llevan `M_navy` (el iris) y
+`M_white` (los brillos), y la boca sale del mismo `bocas.glb`, que usa
+`M_navy`. Esos nombres son los que `paleta.js` mapea a los roles `oscuro` y
+`claro`, asi que llamando a `profesora.aplicarPaletaCara(id)` con la misma
+paleta que K-7 los dos tienen ojos y boca del mismo color en las tres, y no
+solo en la primera. Su ropa no se entera: el resto de sus materiales lleva
+sufijo (`M_navy.002` la camisa, `M_outline_profesora` el contorno) y por eso
+no tiene rol. `index.html` es el ejemplo real de como cambiar entre los
+dos personajes en la misma escena.
+
 ```
 character/
-  k7.js        el modulo: clase K7 + las tablas de gestos/posiciones
-  paleta.js    sistema de paletas por rol de material (independiente de K7)
-  robot.glb    3 modelos + armature compartido + 6 animaciones
-  bocas.glb    5 bocas sueltas (feliz, abierta, pensando, sorpresa, triste)
-  ojos.glb     5 pares de ojos sueltos (normal, triste, guino, doble_guino, pensando)
+  k7.js          el modulo: clase K7 + las tablas de gestos/posiciones
+  profesora.js   el modulo: clase Profesora + gestos + BOCA_PROFESORA
+  habla.js       lipsync y cabeceo, compartido por los dos personajes
+  paleta.js      sistema de paletas por rol de material (independiente de K7)
+  robot.glb      3 modelos + armature compartido + 6 animaciones (K-7)
+  profesora.glb  1 modelo + armature + 5 animaciones (Profesora)
+  bocas.glb      5 bocas sueltas (feliz, abierta, pensando, sorpresa, triste)
+  ojos.glb       5 pares de ojos sueltos (normal, triste, guino, doble_guino, pensando)
 ```
 
 ## Uso mínimo
@@ -133,3 +156,23 @@ entre sí sin romper nada (cada uno detecta si ya no queda nada por quitar).
 Las animaciones adicionales (`K7_Pensando`, `K7_Saltito`, `K7_Triste`,
 `K7_HighFive`, `K7_Caminando`) se agregan directamente en Blender sobre el
 resultado de `rig_cubehead.py`, antes de correr `build_bocas.py`.
+
+
+## Hablar: `habla.js`
+
+`hablar(true/false)` mueve la boca y le pone a la cabeza (y al pecho) un
+cabeceo suave. Los dos personajes usan el mismo `habla.js`; antes estaba
+copiado en cada modulo y se arreglaba dos veces o en ninguna.
+
+El cabeceo se compone ENCIMA de lo que deja la animacion, y por eso hay que
+deshacerlo al principio de cada fotograma, antes de que el mixer escriba
+(`restaurar()`). Si no, se acumula — y se acumula mas a menudo de lo que
+parece: aunque todos los clips traigan pista para la cabeza, three.js solo
+sobrescribe el hueso del todo cuando los pesos de las acciones activas suman
+1; en una transicion entre gestos puede sumar menos y entonces mezcla contra
+el "estado original" que guardo al activar la accion, que si ya llevaba el
+cabeceo encima queda contaminado. El sintoma era una cabeza girandose de mas
+sin que ninguna animacion se lo pidiera.
+
+Con `restaurar()` antes del mixer, el aporte del cabeceo se queda acotado
+(~2.5 grados) por muchas transiciones que haya.

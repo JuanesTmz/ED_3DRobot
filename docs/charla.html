@@ -52,7 +52,7 @@
     border:3px solid rgba(255,255,255,.85);
   }
   #nametag.hidden{visibility:hidden}
-  /* la profe Vero todavia no tiene modelo: se reconoce por el color de su etiqueta */
+  /* la profe Vero tiene su propio color de etiqueta, ademas de su modelo 3D */
   #nametag.vero{background:var(--hl)}
 
   /* botón para bajar el mensaje un momento y ver la pizarra completa: fijo
@@ -72,6 +72,18 @@
     border:3px solid rgba(255,255,255,.9);
     box-shadow:0 14px 40px rgba(0,0,0,.45);
     color:var(--ink);
+  }
+  /* en pantallas bajas (celular en horizontal, iPhone SE/8...) un texto largo
+     -mas una pregunta con 3 opciones- puede crecer mas que el hueco libre
+     entre #avatars (arriba, fixed) y el borde inferior: sin tope, la caja
+     sigue subiendo y termina tapada detras de #avatars, con el texto
+     ilegible. Por altura de viewport, no de ancho: pasa igual en un celular
+     angosto en vertical (alto de sobra) que en uno ancho en horizontal. */
+  @media (max-height:650px){
+    /* overflow-x:hidden explicito: si solo se fija overflow-y, la regla del
+       spec que convierte el otro eje en "auto" hace aparecer una barra
+       horizontal aunque nada se pase de ancho (basta 1px de redondeo) */
+    #box{max-height:78vh;overflow-y:auto;overflow-x:hidden}
   }
   #text{
     font-size:clamp(17px,2.35vw,25px);line-height:1.5;font-weight:600;
@@ -339,6 +351,7 @@
 import * as THREE from 'three';
 import { GLTFLoader }    from 'three/addons/loaders/GLTFLoader.js';
 import { K7, conectarBotones } from './character/k7.js';
+import { Profesora } from './character/profesora.js';
 
 const errBox = document.getElementById('err');
 const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
@@ -349,7 +362,8 @@ window.addEventListener('error', e => fail(e.message));
 const app = document.getElementById('app');
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(34, innerWidth / innerHeight, 0.1, 100);
+const FOV_K7 = 34;   // fov "normal", frente a K-7; el tablero puede ensancharlo (ver poseTablero)
+const camera = new THREE.PerspectiveCamera(FOV_K7, innerWidth / innerHeight, 0.1, 100);
 // toma frontal fija, como en Animal Crossing: nada de orbitar
 const VIEW_DIR = new THREE.Vector3(0.16, 0.13, 1).normalize();
 const TARGET = new THREE.Vector3(0, 1.0, 0);
@@ -404,8 +418,38 @@ const k7 = new K7({
   onError: fail,
 });
 
-// misma eleccion de paleta que en el visor: se comparte por localStorage
-conectarBotones('#avatars button[data-pal]', (id) => k7.aplicarPaletaPersonaje(id));
+/* --------------------------------------------------- la profe Vero ------ */
+/* Vero es la Profesora de character/profesora.js. No esta en escena desde el
+   principio: entra caminando por la derecha en 1.5, cuando K-7 la anuncia
+   (ver entrarProfesora y el nodo con `entra: true`). Hasta entonces el
+   encuadre es solo de K-7. */
+
+const profesora = new Profesora({
+  THREE, GLTFLoader, base: './character',
+  onError: fail,
+});
+
+// marcas de suelo. K-7 esta solo en el centro hasta que llega Vero; ahi se
+// corre a la izquierda para hacerle sitio.
+const K7_X_SOLO = 0;
+const K7_X_DUO = -0.62;
+const VERO_X = 0.80;
+const VERO_X_FUERA = 3.6;      // fuera de cuadro por la derecha
+const ENTRADA_MS = 3400;
+// cuando ella llega, K-7 deja de mirar de frente y se gira hacia su lado: los
+// dos quedan conversando en vez de ser dos figuras mirando al docente
+const K7_GIRO_DUO = 24;        // grados
+
+let veroEnEscena = false;      // ya entro (y por tanto el encuadre es de dos)
+let k7BaseX = K7_X_SOLO;       // x "de reposo" de K-7, la que respetan los saltitos
+
+// misma eleccion de paleta que en el visor: se comparte por localStorage.
+// Vero se suma solo con la cara: sus ojos y su boca llevan los materiales de
+// K-7, asi que los dos los tienen del mismo color en las tres paletas.
+conectarBotones('#avatars button[data-pal]', (id) => {
+  k7.aplicarPaletaPersonaje(id);
+  profesora.aplicarPaletaCara(id);
+});
 const clock = new THREE.Clock();
 
 const loaderEl  = document.getElementById('loader');
@@ -461,11 +505,44 @@ function repartirProps() {
 // barra de arriba se parte en dos lineas y la caja mide menos, asi que esa
 // fraccion se quedaba corta y el personaje quedaba con la cabeza pegada a
 // los botones. Mide los dos huecos de verdad en vez de adivinarlos.
+/* Centro y radio de lo que la cámara tiene que encuadrar: K-7 solo, o K-7 y
+   Vero juntos una vez ella entra. Vero se mide SIEMPRE en su marca final, no
+   donde esté en ese instante: durante la entrada viene desde fuera de cuadro
+   y el encuadre saldría absurdamente abierto. */
+function medirElenco() {
+  if (!k7.model) return;
+  const box = new THREE.Box3().setFromObject(k7.model);
+
+  if (veroEnEscena && profesora.model) {
+    const x = profesora.model.position.x;
+    const ry = profesora.model.rotation.y;
+    profesora.model.position.x = VERO_X;
+    profesora.model.rotation.y = 0;
+    profesora.model.updateMatrixWorld(true);
+    box.expandByObject(profesora.model);
+    profesora.model.position.x = x;
+    profesora.model.rotation.y = ry;
+    profesora.model.updateMatrixWorld(true);
+  }
+
+  box.getCenter(CENTER);
+  const size = box.getSize(new THREE.Vector3());
+  modelRadius = Math.max(size.x, size.y, size.z) * 0.5;
+}
+
 function frame() {
+  medirElenco();
   // si la cámara está mirando al tablero (ver pizarra más abajo), esta llamada
   // solo debe refrescar camPoseK7 para cuando se vuelva; no debe mover la
   // cámara que el docente tiene delante en ese momento
-  const posarDespues = inBoardView ? { pos: camera.position.clone(), target: TARGET.clone() } : null;
+  const posarDespues = inBoardView ? { pos: camera.position.clone(), target: TARGET.clone(), fov: camera.fov } : null;
+
+  // el tablero (ver poseTablero) puede dejar el fov ensanchado: esta es la
+  // pose "normal" frente a K-7, siempre con el fov base, sin importar cual
+  // estuviera activo al llamar a frame() (p.ej. si se redimensiona la
+  // ventana mientras se mira el tablero)
+  camera.fov = FOV_K7;
+  camera.updateProjectionMatrix();
 
   const arribaLibre = document.getElementById('avatars').getBoundingClientRect().bottom;
   const abajoLibre = document.getElementById('hud').getBoundingClientRect().top;
@@ -482,11 +559,13 @@ function frame() {
   TARGET.y -= bajar;
   camera.position.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
   camera.lookAt(TARGET);
-  camPoseK7 = { pos: camera.position.clone(), target: TARGET.clone() };
+  camPoseK7 = { pos: camera.position.clone(), target: TARGET.clone(), fov: FOV_K7 };
 
   if (posarDespues) {
     camera.position.copy(posarDespues.pos);
     TARGET.copy(posarDespues.target);
+    camera.fov = posarDespues.fov;
+    camera.updateProjectionMatrix();
     camera.lookAt(TARGET);
   }
   repartirProps();
@@ -510,11 +589,6 @@ async function iniciarK7() {
     loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
   } else {
     k7.agregarA(scene);
-
-    const box = new THREE.Box3().setFromObject(k7.model);
-    box.getCenter(CENTER);
-    const size = box.getSize(new THREE.Vector3());
-    modelRadius = Math.max(size.x, size.y, size.z) * 0.5;
     frame();
 
     showMesh(k7.modelo);
@@ -522,6 +596,16 @@ async function iniciarK7() {
   }
   loaderEl.classList.add('done');
 }
+
+/* Vero se carga en segundo plano, como los muebles: no aparece hasta 1.5, así
+   que no tiene por qué retrasar el arranque de la charla. */
+profesora.cargar().then(() => {
+  if (!profesora.model) return;
+  profesora.agregarA(scene);
+  profesora.aplicarPaletaCara(k7.paleta);   // la misma que tenga K-7
+  profesora.model.visible = false;
+  profesora.model.position.set(VERO_X_FUERA, 0, 0);
+});
 
 // el fondo se carga aparte y no bloquea el arranque de la charla
 new GLTFLoader().load('implementos.glb', (gltf) => {
@@ -586,31 +670,117 @@ resizeChalk();
 
 function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2; }
 
-// mueve cámara+objetivo de donde están ahora hasta `to` en `dur` ms
+// mueve cámara+objetivo (y fov, si `to` trae uno) de donde están ahora hasta
+// `to` en `dur` ms
 function tweenCamera(to, dur, onDone) {
   camAnim = {
     t0: performance.now(), dur, onDone,
-    from: { pos: camera.position.clone(), target: TARGET.clone() },
-    to,
+    from: { pos: camera.position.clone(), target: TARGET.clone(), fov: camera.fov },
+    to: { fov: camera.fov, ...to },
   };
 }
 
 function esperar(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
+function easeOutCubic(t) { return 1 - (1 - t) ** 3; }
+
+/* interpola una propiedad numérica de un objeto three (posición, rotación…)
+   con requestAnimationFrame; devuelve una promesa que resuelve al terminar */
+function tweenProp(obj, campo, hasta, dur, ease = easeOutCubic) {
+  return new Promise((resolve) => {
+    const desde = obj[campo];
+    const t0 = performance.now();
+    (function step() {
+      const t = Math.min(1, (performance.now() - t0) / dur);
+      obj[campo] = desde + (hasta - desde) * ease(t);
+      if (t >= 1) { resolve(); return; }
+      requestAnimationFrame(step);
+    })();
+  });
+}
+
+/* ------------------------------------------------- la entrada de Vero --- */
+/* K-7 la anuncia («¡Buen día, profe Vero!») y ella entra caminando por la
+   derecha. Mientras cruza: camina de perfil hacia donde va, K-7 se corre a la
+   izquierda para hacerle sitio y la cámara se abre del encuadre de uno al de
+   dos. Al llegar a su marca se gira hacia el docente y se queda en reposo. */
+async function entrarProfesora() {
+  if (veroEnEscena || !profesora.model) return;
+  veroEnEscena = true;
+
+  profesora.model.visible = true;
+  profesora.model.position.set(VERO_X_FUERA, 0, 0);
+  profesora.model.rotation.y = -Math.PI / 2;   // de perfil, mirando a -X
+  profesora.reproducir('Profesora_Caminando', 0.2);
+
+  // K-7 le hace sitio y ademas se gira hacia ella
+  k7BaseX = K7_X_DUO;
+  tweenProp(k7.model.position, 'x', K7_X_DUO, ENTRADA_MS * 0.75);
+  tweenProp(k7.model.rotation, 'y', THREE.MathUtils.degToRad(K7_GIRO_DUO), ENTRADA_MS * 0.75);
+  abrirEncuadre(ENTRADA_MS * 0.8);
+
+  await tweenProp(profesora.model.position, 'x', VERO_X, ENTRADA_MS);
+  await tweenProp(profesora.model.rotation, 'y', 0, 420);
+  profesora.reproducir('Profesora_Idle', 0.35);
+}
+
+/* Vero se queda en escena hasta el final de la expedición: no se despide
+   andando. Quien la retira es el cambio de expedición, y lo hace en seco —la
+   tarjeta de capítulo ocupa toda la pantalla, así que el corte no se ve—.
+   Vuelve a entrar más adelante, en el punto del guion que lo pida (otro nodo
+   con `entra: true`), nunca desde el arranque de una expedición. */
+function quitarProfesora() {
+  if (!veroEnEscena || !profesora.model) return;
+  profesora.model.visible = false;
+  profesora.hablar(false);
+  veroEnEscena = false;          // antes de reencuadrar: ya no cuenta en medirElenco
+
+  k7BaseX = K7_X_SOLO;
+  k7.model.position.x = K7_X_SOLO;
+  k7.model.rotation.y = 0;       // vuelve a mirar de frente al docente
+  frame();                       // reencuadre en seco, detrás de la tarjeta
+}
+
+/* Lleva la cámara del encuadre actual al que toca ahora (frame() ya sabe si
+   el elenco es de uno o de dos), pero animada en vez de en seco. */
+function abrirEncuadre(dur) {
+  const desde = { pos: camera.position.clone(), target: TARGET.clone(), fov: camera.fov };
+  frame();
+  const hasta = { pos: camera.position.clone(), target: TARGET.clone(), fov: camera.fov };
+  camera.position.copy(desde.pos);
+  TARGET.copy(desde.target);
+  camera.fov = desde.fov;
+  camera.updateProjectionMatrix();
+  tweenCamera(hasta, dur);
+}
+
 // pose frente al tablero: recalculada cada vez (el fov efectivo cambia con
 // el aspect de la ventana), a diferencia de camPoseK7 que frame() ya cachea
+//
+// El tablero es bien apaisado (~2:1). En un celular en vertical el fov
+// horizontal disponible es angosto, y pedirle a la cámara que retroceda lo
+// suficiente para que ese ancho entre completo la mandaba tan atrás que
+// terminaba detrás de K-7 -literalmente con K-7 de por medio, tapando el
+// tablero-. La distancia ahora se fija solo por el alto (con el fov base:
+// eso es lo que ya garantiza no pasarse de largo) y el ancho se resuelve
+// ensanchando el fov en ese mismo punto, no alejando más la cámara. El
+// sobrante vertical que deja un fov más ancho es solo un poco más de aula
+// alrededor del tablero, nunca K-7 de por medio.
 function poseTablero() {
   if (!boardBox) return null;
   const center = boardBox.getCenter(new THREE.Vector3());
   const size = boardBox.getSize(new THREE.Vector3());
   const dir = new THREE.Vector3(0.05, 0.05, 1).normalize();   // casi de frente
-  const halfFovV = THREE.MathUtils.degToRad(camera.fov * 0.5);
-  const halfFovH = Math.atan(Math.tan(halfFovV) * camera.aspect);
-  const dist = Math.max(
-    (size.y * 0.5) / Math.tan(halfFovV),
-    (size.x * 0.5) / Math.tan(halfFovH),
-  ) * 1.25;   // margen para que el tablero no quede a ras del encuadre
-  return { pos: center.clone().addScaledVector(dir, dist), target: center.clone() };
+  const MARGEN = 1.25;   // para que el tablero no quede a ras del encuadre
+
+  const halfFovV0 = THREE.MathUtils.degToRad(FOV_K7 * 0.5);
+  const dist = (size.y * 0.5 * MARGEN) / Math.tan(halfFovV0);
+
+  const halfFovHNecesario = Math.atan((size.x * 0.5 * MARGEN) / dist);
+  const halfFovVNecesario = Math.atan(Math.tan(halfFovHNecesario) / camera.aspect);
+  const fov = Math.min(100, Math.max(FOV_K7, THREE.MathUtils.radToDeg(halfFovVNecesario) * 2));
+
+  return { pos: center.clone().addScaledVector(dir, dist), target: center.clone(), fov };
 }
 
 // rectángulo en píxeles que ocupa la cara visible del tablero, con la cámara
@@ -730,8 +900,12 @@ addEventListener('resize', () => {
 });
 
 renderer.setAnimationLoop(() => {
-  const dt = clock.getDelta();
+  // Tope al paso de tiempo: si el docente se va a otra pestaña, el navegador
+  // congela el rAF y al volver getDelta() devuelve de golpe todo lo que pasó.
+  // Sin tope, ese salto se come de una vez el gesto que estuviera sonando.
+  const dt = Math.min(clock.getDelta(), 0.05);
   k7.actualizar(dt);
+  if (veroEnEscena) profesora.actualizar(dt);
   actualizarChalk(dt);
 
   if (camAnim) {
@@ -739,6 +913,10 @@ renderer.setAnimationLoop(() => {
     const e = easeInOutCubic(t);
     camera.position.lerpVectors(camAnim.from.pos, camAnim.to.pos, e);
     TARGET.lerpVectors(camAnim.from.target, camAnim.to.target, e);
+    if (camAnim.from.fov !== camAnim.to.fov) {
+      camera.fov = THREE.MathUtils.lerp(camAnim.from.fov, camAnim.to.fov, e);
+      camera.updateProjectionMatrix();
+    }
     if (t >= 1) { const done = camAnim.onDone; camAnim = null; done?.(); }
   } else {
     const t = performance.now() * 0.0004;
@@ -751,8 +929,9 @@ renderer.setAnimationLoop(() => {
 
 /* ================================================================ GUION */
 /* El texto de K-7 y el de la profe Vero salen de personaje.md.
-   La profe Vero todavía no tiene modelo 3D: habla en la caja de diálogo con
-   su propia etiqueta, mientras en pantalla sigue estando K-7. */
+   Vero entra en escena en 1.5 (ver entrarProfesora): a partir de ahi los dos
+   estan en pantalla y cada nodo mueve al que habla, dejando al otro
+   escuchando en reposo. */
 
 const K = 'K-7';
 const V = 'Profe Vero';
@@ -792,8 +971,10 @@ function saltoLadeado(signo) {
     const desplazar = signo * 0.16;
     (function step() {
       const t = Math.min(1, (performance.now() - t0) / dur);
-      k7.model.position.x = Math.sin(t * Math.PI) * desplazar;
-      if (t >= 1) { k7.model.position.x = 0; resolve(); return; }
+      // el saltito se suma a donde esté K-7, que no siempre es el centro:
+      // cuando llega Vero se corre a la izquierda (ver k7BaseX)
+      k7.model.position.x = k7BaseX + Math.sin(t * Math.PI) * desplazar;
+      if (t >= 1) { k7.model.position.x = k7BaseX; resolve(); return; }
       requestAnimationFrame(step);
     })();
   });
@@ -877,43 +1058,53 @@ const script = [
   { ...say('¡Por todos los circuitos! Mire nada más cómo se transformó esto. Con sus indicaciones, cambiamos los trenes por otra cosa. <b>Esto ya es otra cosa.</b>'), emote: 'K7_HighFive' },
   say('Esta ya no es mi clase, profe. Es la suya. ¿La llevarías al salón?'),
   { ...say('¡!'), emote: 'K7_Saltito' },
-  beat('Profe, deme un momento antes de responderme. Quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo: la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para ayudarnos a recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
-       'Hola, profe Vero'),
+  /* `entra: true` — K-7 la anuncia y Vero entra caminando por la derecha
+     mientras él termina la frase (ver entrarProfesora) */
+  { ...beat('Profe, deme un momento antes de responderme. Quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo: la <b>profe Vero</b>. Nos acompañará siempre al cierre de nuestras expediciones para ayudarnos a recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!',
+            'Hola, profe Vero'), entra: true },
 
   /* --------------------------------------------------------------- 1.6 */
-  /* la profe Vero todavía no tiene modelo 3D: por ahora solo su diálogo */
-  { who: V, dynamic: veroSaluda },
-  vero('Hay un punto fundamental que ustedes dos acaban de identificar: <b>la IA no distingue una buena clase de una que solo parece serlo.</b> ¡Pero un docente como tú sí!'),
-  vero('Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca, qué metodología quiere emplear, cómo quiere evaluar…'),
+  /* Vero ya está en escena: los `emote` de estos nodos son suyos, no de K-7
+     (ver next()). Sus gestos salen de character/profesora.js. */
+  { who: V, dynamic: veroSaluda, emote: 'Profesora_Mirando', reaccion: 'K7_Saltito' },
+  { ...vero('Hay un punto fundamental que ustedes dos acaban de identificar: <b>la IA no distingue una buena clase de una que solo parece serlo.</b> ¡Pero un docente como tú sí!'),
+    emote: 'Profesora_Eureka', reaccion: 'K7_Pensando' },
+  { ...vero('Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca, qué metodología quiere emplear, cómo quiere evaluar…'), emote: 'Profesora_Escribiendo' },
 
   /* {{Zoom al tablero, se muestra imagen Herramienta1.3.jpg}} — varios
      mensajes seguidos comparten la misma pizarra (board + boardHold) */
-  { ...vero('Puedes usar la IA de tu preferencia, pero algunas ya vienen configuradas para hacer el trabajo docente más sencillo.'), board: 'img/Herramienta1.3.jpg' },
+  { ...vero('Puedes usar la IA de tu preferencia, pero algunas ya vienen configuradas para hacer el trabajo docente más sencillo.'), board: 'img/Herramienta1.3.jpg', emote: 'Profesora_Mirando' },
   { ...vero('Así funciona la <b>IA Escuela Inteligente</b>: escuelainteligente.medellin.edu.co'), boardHold: true },
-  { ...vero('Incluso te hace las preguntas necesarias para cada caso, recurso o reflexión.'), boardHold: true },
-  { ...vero('¿Y por qué usarla?'), boardHold: true },
+  { ...vero('Incluso te hace las preguntas necesarias para cada caso, recurso o reflexión.'), boardHold: true, emote: 'Profesora_Escribiendo' },
+  { ...vero('¿Y por qué usarla?'), boardHold: true, emote: 'Profesora_Mirando' },
   { ...vero('Bueno, tienes ventajas, como ganar en agilidad mientras te ofrece una estructura bien soportada para cada tarea que le pidas.'), boardHold: true },
-  { ...vero('Y eso pasa sin que pierdas tu liderazgo en el proceso. Nunca lo puedes perder.'), boardHold: true },
-  { ...vero('Porque cada uno debe hacer lo que mejor sabe hacer: el docente piensa y conecta; la IA hace el trabajo de carpintería.'), boardHold: true },
+  { ...vero('Y eso pasa sin que pierdas tu liderazgo en el proceso. Nunca lo puedes perder.'),
+    boardHold: true, emote: 'Profesora_Eureka', reaccion: 'K7_HighFive' },
+  { ...vero('Porque cada uno debe hacer lo que mejor sabe hacer: el docente piensa y conecta; la IA hace el trabajo de carpintería.'),
+    boardHold: true, reaccion: 'K7_Triste' },
 
   { who: V, text: 'Profe, dime: <b>¿qué piensas sobre esta idea como conclusión de la primera expedición?</b>',
-    input: 'reflexion', placeholder: 'Tu reflexión de cierre…' },
+    input: 'reflexion', placeholder: 'Tu reflexión de cierre…', emote: 'Profesora_Mirando' },
 
   /* --------------------------------------------------------------- 1.7 */
   { ...dyn(reciboReflexion), emote: emoteSiSilencio('reflexion') },
-  vero('Ahora, para finalizar este nivel vamos a hacer dos cosas:'),
+  { ...vero('Ahora, para finalizar este nivel vamos a hacer dos cosas:'), emote: 'Profesora_Escribiendo' },
 
   /* {{Se muestra en pantalla la imagen resumen1.4.png}} — un clic la retira */
-  { ...vero('Primero, te voy a compartir una imagen con algunas ideas importantes y conclusiones sobre lo que conversaste con K-7:'), board: 'img/resumen1.4.png' },
+  { ...vero('Primero, te voy a compartir una imagen con algunas ideas importantes y conclusiones sobre lo que conversaste con K-7:'), board: 'img/resumen1.4.png', emote: 'Profesora_Mirando' },
 
-  vero('Segundo, ha llegado el momento de entregarte tu merecido reconocimiento por haber completado la Primera Expedición:'),
+  { ...vero('Segundo, ha llegado el momento de entregarte tu merecido reconocimiento por haber completado la Primera Expedición:'),
+    emote: 'Profesora_Eureka', reaccion: 'K7_Saltito' },
 
   /* {{Se muestra en pantalla la insignia insignia1.png}} */
   { ...vero('«La IA no sabe quién eres tú»'), board: 'img/insignia1.png' },
 
-  vero('¿Todo listo para la siguiente expedición? Seguiremos con <i>«La IA no sabe que puede hacer daño»</i>.'),
+  { ...vero('¿Todo listo para la siguiente expedición? Seguiremos con <i>«La IA no sabe que puede hacer daño»</i>.'), emote: 'Profesora_Eureka' },
+  /* Vero se queda hasta el final de la expedición; la retira el cambio de
+     capítulo, en seco y detrás de la tarjeta (ver quitarProfesora) */
   { who: V, text: 'Te dejo con K-7, para que te siga acompañando.\n¡Nos vemos pronto!',
-    options: [{ label: 'Segunda Expedición' }] },
+    options: [{ label: 'Segunda Expedición' }], emote: 'Profesora_Mirando',
+    reaccion: 'K7_HighFive' },
 
   /* ============================================ EXPEDICIÓN 2 ============ */
   { chapter: 'Expedición 2 · La IA no sabe que puede hacer daño',
@@ -1073,6 +1264,7 @@ function typewrite(html, done) {
 
     if (i >= tokens.length) {
       k7.hablar(false);
+      profesora.hablar(false);
       elText.innerHTML = html;
       if (reveal) reveal();
       return;
@@ -1095,6 +1287,8 @@ function clearUI() {
   cancelAnimationFrame(typing);
   k7.hablar(false);
   k7.bocaEnReposo = 'feliz';
+  profesora.hablar(false);
+  profesora.bocaEnReposo = 'feliz';
   reveal = null;
   waiting = false;
 }
@@ -1107,6 +1301,9 @@ function next() {
 
   /* tarjeta de capítulo a pantalla completa */
   if (node.chapter) {
+    // cambiar de expedición es lo que retira a Vero, y tras la tarjeta no se
+    // ve el corte: si sigue en escena, se va aquí
+    quitarProfesora();
     addEntry('chapter', node.chapter);
     elChap.querySelector('h2').textContent = node.chapter;
     elChap.querySelector('p').textContent = node.note || '';
@@ -1126,26 +1323,39 @@ function next() {
   elTag.classList.remove('hidden');
   const quien = nameOf(node);
   elTag.textContent = quien;
-  // la profe Vero aún no tiene modelo 3D: se distingue por la etiqueta
+  // cada quien con su color de etiqueta, ademas de su modelo en escena
   elTag.classList.toggle('vero', quien === V);
   full = node.dynamic ? node.dynamic() : node.text;
   pending = full;
   pendingWho = quien;
 
-  // en pantalla siempre está K-7: cuando la que habla es la profe Vero, se
-  // queda quieto escuchando
-  k7.hablar(quien === K);
+  // el que no habla se queda escuchando; el emote del nodo es de quien habla
+  const hablaVero = quien === V;
+  k7.hablar(!hablaVero);
+  if (veroEnEscena) profesora.hablar(hablaVero);
+
   // el emote puede ser fijo o decidirse según lo que el docente haya escrito
-  // (ver emoteSiSilencio); sin uno propio, vuelve a Idle
-  if (node.saltosLaterales) {
-    saltosProfe();
+  // (ver emoteSiSilencio); sin uno propio, el personaje vuelve a su reposo
+  const emoteName = typeof node.emote === 'function' ? node.emote() : node.emote;
+  if (hablaVero) {
+    if (veroEnEscena) profesora.reproducir(emoteName || 'Profesora_Idle');
+    // `reaccion` deja que K-7 conteste con un gesto a lo que ella dice, en
+    // los puntos que lo piden; sin ella se queda escuchando en reposo
+    k7.reproducir(node.reaccion || 'Idle');
   } else {
-    const emoteName = typeof node.emote === 'function' ? node.emote() : node.emote;
-    k7.reproducir(emoteName || 'Idle');
+    if (node.saltosLaterales) saltosProfe();
+    else k7.reproducir(emoteName || 'Idle');
+    if (veroEnEscena) profesora.reproducir('Profesora_Idle');
   }
 
+  // K-7 la anuncia y ella entra caminando mientras él termina la frase
+  if (node.entra) entrarProfesora();
+
   typewrite(full, () => {
-    k7.bocaEnReposo = (node.input || node.options) ? 'pensando' : 'feliz';
+    // quien acaba de hablar se queda con cara de esperar respuesta
+    const enEspera = (node.input || node.options) ? 'pensando' : 'feliz';
+    if (hablaVero) profesora.bocaEnReposo = enEspera;
+    else k7.bocaEnReposo = enEspera;
     if (node.input) {
       campoActivo = node.input;
       elEntry.placeholder = node.placeholder || 'Escriba aquí su respuesta…';

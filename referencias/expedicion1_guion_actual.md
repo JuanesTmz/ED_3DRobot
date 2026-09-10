@@ -9,7 +9,8 @@
 > - **K-7 dice:** / **Vero dice:** → texto tal cual aparece en la caja de diálogo.
 > - `[Campo abierto: nombre]` → el docente escribe libre.
 > - `[Opciones]` → botones de respuesta cerrada, cada uno con su réplica.
-> - `{{Emote: K7_X}}` → K-7 hace ese gesto (ver tabla de gestos al final) mientras dice esa línea.
+> - `{{Emote: K7_X}}` / `{{Emote: Profesora_X}}` → ese personaje hace el gesto **mientras dura ese mensaje**: se sostiene en bucle hasta que el guion pida otra cosa, no se toca una vez y se cae. Las dos excepciones son `K7_Saltito` y `K7_HighFive`, que sí se tocan una sola vez y vuelven solos al reposo.
+- `{{Reacción K-7: K7_X}}` → en una línea que dice **Vero**, K-7 contesta con ese gesto, como si reaccionara a lo que oye. Sin esta marca se queda escuchando en reposo. Están puestas solo en algunos momentos, a propósito: si reaccionara a todo perdería fuerza.
 > - `{{Muestra imagen en tablero: archivo.png}}` / `{{Vuelve a K7}}` → zoom de cámara al tablero y de regreso.
 > - `{{Sigue en el tablero}}` → el mensaje comparte la pizarra que ya estaba abierta (no vuelve a hacer zoom).
 
@@ -151,34 +152,42 @@ Placeholder: *El rumbo de la clase: situación, enfoque, intereses…*
 
 **[Botón único]** — Profe, deme un momento antes de responderme. Quiero presentarle a alguien muy especial que ha estado observando nuestro trabajo: la **profe Vero**. Nos acompañará siempre al cierre de nuestras expediciones para ayudarnos a recoger los aprendizajes clave y hacerle entrega de su insignia de avance. ¡Buen día, profe Vero!
 → Botón: **«Hola, profe Vero»**
+`{{Entra Vero caminando por la derecha}}` — al mostrarse este mensaje, Vero entra
+caminando de derecha a izquierda mientras K-7 la anuncia. K-7 se corre a la
+izquierda para hacerle sitio, **se gira 24° hacia ella** —los dos quedan
+conversando en vez de ser dos figuras mirando al frente— y la cámara se abre
+del encuadre de uno al de dos. Vero llega a su marca, se gira hacia el docente
+y se queda.
 
 ---
 
 ## 1.6 — Cierre con la profe Vero
 
-*(Vero todavía no tiene modelo 3D: solo su diálogo, K-7 se queda quieto escuchando.)*
+*(Vero ya tiene modelo 3D y está en escena desde 1.5. En sus líneas gesticula ella
+y K-7 se queda escuchando en reposo; en las de K-7, al revés. Sus gestos se
+sostienen todo el mensaje.)*
 
 **[Respuesta dinámica]** — saludo de Vero, con el nombre del docente si ya lo dio (o «profe» si no):
-«¡Hola, [nombre/"profe"]! Qué alegría saludarte. He seguido con mucha atención el trabajo que acabas de hacer con K-7.»
+`{{Emote: Profesora_Mirando}}` `{{Reacción K-7: K7_Saltito}}` «¡Hola, [nombre/"profe"]! Qué alegría saludarte. He seguido con mucha atención el trabajo que acabas de hacer con K-7.»
 
 **Vero dice**, seguido:
-1. Hay un punto fundamental que ustedes dos acaban de identificar: **la IA no distingue una buena clase de una que solo parece serlo.** ¡Pero un docente como tú sí!
-2. Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca, qué metodología quiere emplear, cómo quiere evaluar…
+1. `{{Emote: Profesora_Eureka}}` `{{Reacción K-7: K7_Pensando}}` Hay un punto fundamental que ustedes dos acaban de identificar: **la IA no distingue una buena clase de una que solo parece serlo.** ¡Pero un docente como tú sí!
+2. `{{Emote: Profesora_Escribiendo}}` Para que un maestro saque el verdadero provecho de la inteligencia artificial, necesita ofrecerle todo el contexto posible: quiénes son sus estudiantes, qué realidades viven, qué recursos tienen a mano, qué propósito formativo se busca, qué metodología quiere emplear, cómo quiere evaluar…
 
 `{{Muestra imagen en tablero: Herramienta1.3.jpg}}`
 **Vero dice**, todo esto con la misma pizarra abierta (`{{Sigue en el tablero}}` en cada línea después de la primera):
-3. Puedes usar la IA de tu preferencia, pero algunas ya vienen configuradas para hacer el trabajo docente más sencillo.
+3. `{{Emote: Profesora_Mirando}}` Puedes usar la IA de tu preferencia, pero algunas ya vienen configuradas para hacer el trabajo docente más sencillo.
 4. `{{Sigue en el tablero}}` Así funciona la **IA Escuela Inteligente**: escuelainteligente.medellin.edu.co
-5. `{{Sigue en el tablero}}` Incluso te hace las preguntas necesarias para cada caso, recurso o reflexión.
-6. `{{Sigue en el tablero}}` ¿Y por qué usarla?
+5. `{{Sigue en el tablero}}` `{{Emote: Profesora_Escribiendo}}` Incluso te hace las preguntas necesarias para cada caso, recurso o reflexión.
+6. `{{Sigue en el tablero}}` `{{Emote: Profesora_Mirando}}` ¿Y por qué usarla?
 7. `{{Sigue en el tablero}}` Bueno, tienes ventajas, como ganar en agilidad mientras te ofrece una estructura bien soportada para cada tarea que le pidas.
-8. `{{Sigue en el tablero}}` Y eso pasa sin que pierdas tu liderazgo en el proceso. Nunca lo puedes perder.
-9. `{{Sigue en el tablero}}` Porque cada uno debe hacer lo que mejor sabe hacer: el docente piensa y conecta; la IA hace el trabajo de carpintería.
+8. `{{Sigue en el tablero}}` `{{Emote: Profesora_Eureka}}` `{{Reacción K-7: K7_HighFive}}` Y eso pasa sin que pierdas tu liderazgo en el proceso. Nunca lo puedes perder.
+9. `{{Sigue en el tablero}}` `{{Reacción K-7: K7_Triste}}` Porque cada uno debe hacer lo que mejor sabe hacer: el docente piensa y conecta; la IA hace el trabajo de carpintería. *(a K-7 le toca ser la carpintería, y se le nota)*
 
 `{{Vuelve a K7}}` (al pasar a la siguiente pregunta)
 
 **[Campo abierto: `reflexion`]** (lo pregunta Vero)
-Profe, dime: **¿qué piensas sobre esta idea como conclusión de la primera expedición?**
+`{{Emote: Profesora_Mirando}}` Profe, dime: **¿qué piensas sobre esta idea como conclusión de la primera expedición?**
 Placeholder: *Tu reflexión de cierre…*
 
 ---
@@ -191,23 +200,33 @@ Placeholder: *Tu reflexión de cierre…*
 - **Con respuesta:** «Muchas gracias, profe. ¡Sus palabras me llegan al algoritmo!»
 
 **Vero dice**, seguido:
-1. Ahora, para finalizar este nivel vamos a hacer dos cosas:
-2. Primero, te voy a compartir una imagen con algunas ideas importantes y conclusiones sobre lo que conversaste con K-7:
+1. `{{Emote: Profesora_Escribiendo}}` Ahora, para finalizar este nivel vamos a hacer dos cosas:
+2. `{{Emote: Profesora_Mirando}}` Primero, te voy a compartir una imagen con algunas ideas importantes y conclusiones sobre lo que conversaste con K-7:
 
 `{{Muestra imagen en tablero: resumen1.4.png}}` (un clic la retira)
 `{{Vuelve a K7}}`
 
-3. Segundo, ha llegado el momento de entregarte tu merecido reconocimiento por haber completado la Primera Expedición:
+3. `{{Emote: Profesora_Eureka}}` `{{Reacción K-7: K7_Saltito}}` Segundo, ha llegado el momento de entregarte tu merecido reconocimiento por haber completado la Primera Expedición:
 
 `{{Muestra imagen en tablero: insignia1.png}}`
 La frase que acompaña la insignia: «La IA no sabe quién eres tú»
 `{{Vuelve a K7}}`
 
-4. ¿Todo listo para la siguiente expedición? Seguiremos con *«La IA no sabe que puede hacer daño»*.
+4. `{{Emote: Profesora_Eureka}}` ¿Todo listo para la siguiente expedición? Seguiremos con *«La IA no sabe que puede hacer daño»*.
 
-**[Botón único, lo dice Vero]** — Te dejo con K-7, para que te siga acompañando.
+**[Botón único, lo dice Vero]** — `{{Emote: Profesora_Mirando}}` `{{Reacción K-7: K7_HighFive}}` Te dejo con K-7, para que te siga acompañando.
 ¡Nos vemos pronto!
 → Botón: **«Segunda Expedición»**
+
+`{{Vero se queda}}` — la despedida **no** la saca de escena: los dos siguen ahí
+hasta el final de la expedición.
+
+`{{Vero desaparece en el cambio de expedición}}` — quien la retira es la tarjeta
+de capítulo de la Expedición 2, y lo hace **en seco, sin animación de retiro**:
+como la tarjeta ocupa toda la pantalla, el corte no se ve. Ahí mismo K-7 vuelve
+al centro y deja de estar girado. Vero no se arrastra de una expedición a la
+otra: vuelve a entrar más adelante, en el punto del guion que lo pida, nunca
+desde el arranque.
 
 ---
 
@@ -221,7 +240,35 @@ La frase que acompaña la insignia: «La IA no sabe quién eres tú»
 | `K7_HighFive` | 1.4 (línea 5) | Choque de manos, "trabajemos juntos" |
 | `K7_Triste` (condicional) | 1.1 y 1.7, solo si el docente dejó el campo en blanco | K-7 se pone vulnerable ante el silencio |
 
-Gestos disponibles que **todavía no se usan** en esta expedición: `K7_Caminando`. Si quieres uno en un punto nuevo, dímelo con `{{Emote: K7_X}}` en el sitio exacto.
+Gestos de K-7 que **todavía no se usan** en esta expedición: `K7_Caminando`.
+
+### Gestos de la profe Vero (`{{Emote: Profesora_X}}`)
+
+| Gesto | Dónde | Qué transmite |
+|---|---|---|
+| `Profesora_Mirando` | saludo, líneas de tablero, preguntas | atenta, escuchando o señalando |
+| `Profesora_Eureka` | «la IA no distingue una buena clase…», el liderazgo, la insignia | el punto clave, la celebración |
+| `Profesora_Escribiendo` | el contexto que hay que darle a la IA, «vamos a hacer dos cosas» | está anotando/enumerando |
+| `Profesora_Caminando` | solo su entrada de 1.5 | el ciclo de caminata |
+
+Los cuatro son **bucles sostenidos**: duran lo que dure el mensaje. `Escribiendo`
+no se queda quieta —la mano del lápiz va y viene sobre la libreta— y `Eureka` y
+`Mirando` llevan una respiración mínima, para que no parezcan una foto.
+
+Si quieres cambiar alguno, dímelo con `{{Emote: Profesora_X}}` en el sitio exacto.
+
+### Reacciones de K-7 mientras habla Vero (`{{Reacción K-7: ...}}`)
+
+| Dónde | Gesto | Por qué ahí |
+|---|---|---|
+| Saludo de Vero (1.6) | `K7_Saltito` | acaba de presentarla, está encantado |
+| «la IA no distingue una buena clase…» | `K7_Pensando` | es justo lo que él descubrió en esta expedición |
+| «sin que pierdas tu liderazgo» | `K7_HighFive` | su tema: trabajar juntos |
+| «la IA hace el trabajo de carpintería» | `K7_Triste` | la carpintería le toca a él |
+| La insignia (1.7) | `K7_Saltito` | celebra el cierre |
+| «Te dejo con K-7» | `K7_HighFive` | recoge la posta |
+
+El resto de las líneas de Vero las escucha en reposo, a propósito.
 
 ## Preguntas abiertas de esta expedición
 
