@@ -224,7 +224,8 @@ export async function camaraNormal(ms = 850) {
   if (encuadre === 'normal') return;
   encuadre = 'normal';
   await irA(vista.camPoseK7, ms);
-  vista.inBoardView = false;
+  // si otro movimiento la reemplazó y volvió al tablero, se queda en el tablero
+  if (encuadre === 'normal') vista.inBoardView = false;
 }
 
 addEventListener('resize', () => requestAnimationFrame(() => {

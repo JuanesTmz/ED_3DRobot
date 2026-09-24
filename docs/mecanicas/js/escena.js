@@ -131,11 +131,19 @@ function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) *
 // mueve cámara+objetivo (y fov, si `to` trae uno) de donde están ahora hasta
 // `to` en `dur` ms
 export function tweenCamera(to, dur, onDone) {
+  // Solo hay un tween a la vez. Si este reemplaza a uno que no había
+  // terminado, al anterior se le da por terminado aquí: antes su onDone se
+  // perdía y quien lo esperaba con await se quedaba colgado para siempre. Pasaba
+  // en el laboratorio: un resize (la barra del navegador en el celular, el
+  // teclado, girar la pantalla) durante el viaje al tablero dejaba la mecánica
+  // sin ventana y sin poder avanzar.
+  const anterior = camAnim?.onDone;
   camAnim = {
     t0: performance.now(), dur, onDone,
     from: { pos: camera.position.clone(), target: TARGET.clone(), fov: camera.fov },
     to: { fov: camera.fov, ...to },
   };
+  anterior?.();
 }
 
 export function esperar(ms) { return new Promise((r) => setTimeout(r, ms)); }

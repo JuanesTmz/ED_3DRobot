@@ -30,6 +30,23 @@ la partida, y un servidor Node con LLM. Aquí no hay servidor, así que:
   menú, y sirve para compartir una sola mecánica. `start()` en `motor.js`
   arranca en `lab.inicio`, así que elegir una estación mientras el aula
   todavía carga también funciona.
+- **Ventanas diminutas en Safari.** La ventana mide su alto por el contenido
+  (`height: fit-content`), y su cuerpo tenía `flex:1`, que es base 0%. Safari
+  17 y anteriores contaban el cuerpo con esa base de 0: la ventana quedaba de
+  encabezado + pie, con el cuerpo aplastado en su relleno, y no se podía
+  usar. Ahora `.vent-cuerpo` usa `flex:1 1 auto`. Se reprodujo y se probó con
+  el WebKit 17.4 de Playwright. **El prototipo de Montaje tiene el mismo CSS.**
+- **Ventanas que no se abrían.** Cada mecánica espera a que la cámara llegue
+  al tablero antes de abrir su ventana. `tweenCamera` (en `js/escena.js`)
+  guarda un solo movimiento a la vez, y si otro lo reemplazaba antes de
+  terminar, el primero nunca avisaba. Un resize en esos ~850 ms (la barra del
+  navegador en el celular, el teclado, girar la pantalla, el zoom) dejaba la
+  mecánica activa, sin ventana y sin poder avanzar. Ahora el movimiento
+  reemplazado se da por terminado. **El mismo error está en Montaje**
+  (`apps/expedicion/js/escena.js`, que usan el prototipo y la expedición).
+- Las ventanas miden su alto con `100dvh` y no con `100vh`: en el celular,
+  `100vh` cuenta la barra del navegador y el pie con los botones quedaba
+  tapado.
 
 ## Traer cambios del prototipo
 
@@ -37,7 +54,8 @@ Si el prototipo o la expedición cambian en Montaje, copiar encima y volver a
 aplicar lo de arriba. Los archivos del laboratorio (`js/lab.js`,
 `js/motor.js`, `js/partida.js`, `js/arranque.js`, `guiones/estaciones.js`,
 `js/mecanicas/ficha.js`, `index.html`, `css/laboratorio.css`) tienen cambios
-propios; el resto (`js/aula.js`, `escena.js`, `elenco.js`, `historial.js`,
+propios, y `js/escena.js` tiene el arreglo de `tweenCamera`; el resto
+(`js/aula.js`, `elenco.js`, `historial.js`,
 `imagenes.js`, `navegacion.js`, `main.js`, `character/`, `css/` de la
 expedición) va tal cual.
 

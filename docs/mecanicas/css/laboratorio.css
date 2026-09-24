@@ -43,7 +43,7 @@ body.accion-on #peek-btn{ display:none !important; }
 
 .vent{
   position:absolute;left:0;right:0;top:72px;bottom:16px;margin:auto;height:fit-content;
-  width:min(1080px,calc(100vw - 240px));max-height:calc(100vh - 88px);
+  width:min(1080px,calc(100vw - 240px));max-height:calc(100vh - 88px);max-height:calc(100dvh - 88px);
   display:flex;flex-direction:column;overflow:hidden;
   background:#fff;border-radius:20px;color:var(--texto);
   box-shadow:0 30px 80px rgba(20,26,38,.30),0 0 0 1px rgba(39,52,74,.06);
@@ -77,7 +77,12 @@ body.accion-on #peek-btn{ display:none !important; }
 .vent-barra{ position:absolute;left:0;right:0;bottom:-1px;height:3px; }
 .vent-barra i{ display:block;height:100%;width:0;background:var(--c-f);transition:width .45s ease; }
 
-.vent-cuerpo{ flex:1;min-height:0;overflow:auto;padding:20px 30px; }
+/* flex-basis auto y no el 0% de `flex:1`: la ventana mide su alto por el
+   contenido (height:fit-content), y Safari 17 y anteriores contaban el cuerpo
+   con su base de 0, así que la ventana quedaba de encabezado + pie y el cuerpo
+   aplastado en su puro relleno. Con auto cuenta lo que mide de verdad y, si no
+   cabe, se encoge (min-height:0) y hace scroll. */
+.vent-cuerpo{ flex:1 1 auto;min-height:0;overflow:auto;padding:20px 30px; }
 
 .vent-pie{
   flex:none;display:flex;align-items:center;gap:20px;
@@ -565,7 +570,7 @@ li.hallado .num{ background:var(--c-f);color:#fff; }
 .est.actual{ box-shadow:inset 0 0 0 2px var(--c-f); }
 .est.actual .est-estado{ background:var(--c-f);color:#fff; }
 .est-nom{ font-size:17.5px;font-weight:800;letter-spacing:-.01em;line-height:1.25; }
-.est-res{ flex:1;font-size:14px;line-height:1.45;color:var(--suave); }
+.est-res{ flex:1 1 auto;font-size:14px;line-height:1.45;color:var(--suave); }
 .est-pie{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   margin-top:10px;padding-top:10px;border-top:1px dashed rgba(39,52,74,.14);
@@ -622,7 +627,7 @@ body:has(#bienvenida[data-modo=pausa].on) #hud{ display:none; }
 
 /* ============================================================ pantallas */
 @media (max-width:980px){
-  .vent,.vent.media{ width:calc(100vw - 32px);top:124px;max-height:calc(100vh - 140px); }
+  .vent,.vent.media{ width:calc(100vw - 32px);top:124px;max-height:calc(100vh - 140px);max-height:calc(100dvh - 140px); }
   .mar,.ctx,.inv{ grid-template-columns:1fr; }
   .inv-lista ol{ grid-template-columns:1fr; }
   .clase-fila{ grid-template-columns:1fr; }
@@ -632,7 +637,7 @@ body:has(#bienvenida[data-modo=pausa].on) #hud{ display:none; }
   #bienvenida-cta{ flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px 14px; }
 }
 @media (max-width:560px){
-  .vent,.vent.media{ top:136px;max-height:calc(100vh - 150px); }
+  .vent,.vent.media{ top:136px;max-height:calc(100vh - 150px);max-height:calc(100dvh - 150px); }
   #menu-link span{ display:none; }
   #menu-link{ padding:8px 10px; }
   #menu-link svg{ width:16px;height:16px; }
