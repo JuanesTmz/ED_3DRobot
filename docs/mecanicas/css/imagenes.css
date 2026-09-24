@@ -1,0 +1,122 @@
+/* Expedición Docente · Ventana de imagen, pizarra, insignias, lupa y aviso de bajar el mensaje. */
+/* ------------------------------------------ ventana de imagen en escena */
+/* A diferencia de la pizarra (zoom de cámara al tablero del aula), esta
+   imagen flota sobre toda la escena, como una postal que K-7/Vero comparten
+   directamente con el docente. Un clic en cualquier parte la retira y
+   avanza el guion (mismo flujo que advance()).
+   Va por DEBAJO del HUD (z-index 5) a propósito: antes iba encima y tapaba
+   la burbuja justo en los cierres de expedición, donde los personajes están
+   explicando el resumen y la insignia. Ahora se lee igual que la pizarra:
+   la imagen detrás, el diálogo delante, y el botón de bajar el mensaje a
+   mano para verla entera. */
+#ventana{
+  position:fixed;inset:0;z-index:4;display:none;
+  place-content:center;justify-items:center;gap:14px;
+  padding:24px;background:rgba(20,26,38,.55);cursor:pointer;
+  animation:ventanaIn .3s ease both;
+}
+#ventana.on{display:grid}
+@keyframes ventanaIn{ from{opacity:0} to{opacity:1} }
+#ventana-img{
+  max-width:min(760px,90vw);max-height:72vh;object-fit:contain;
+  border-radius:16px;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.5);
+  border:3px solid rgba(255,255,255,.9);
+}
+#ventana-hint{
+  margin:0;color:#fff;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;opacity:.75;
+}
+
+/* --------------------------------------------------- pizarra (transición) */
+/* Cuando K-7 explica una actividad, la cámara hace zoom al tablero y ahí
+   aparece la imagen, con un estallido de "tiza" al entrar y al salir. */
+#chalk{position:fixed;inset:0;z-index:4;pointer-events:none}
+#board-img{
+  position:fixed;z-index:4;pointer-events:none;opacity:0;
+  border-radius:6px;box-shadow:0 10px 34px rgba(0,0,0,.4);
+  object-fit:contain;background:#fff;
+  transition:opacity .32s ease;
+}
+/* La lámina de la insignia que se asoma sobre la banda en el epílogo. A
+   diferencia de la pizarra no lleva fondo ni marco: son medallas recortadas,
+   así que se sostienen con su propia sombra. */
+#insignia-img{
+  position:fixed;z-index:4;pointer-events:none;opacity:0;
+  object-fit:contain;transform:scale(.88);transform-origin:center;
+  filter:drop-shadow(0 12px 24px rgba(20,26,38,.42));
+  transition:opacity .3s ease, transform .3s cubic-bezier(.34,1.4,.64,1);
+}
+#insignia-img.on{ opacity:1;transform:scale(1); }
+
+/* ---------------------------------------------------------------- lupa */
+/* Cualquier imagen del guion -pizarra, ventana o resumen- se puede abrir
+   aquí a tamaño completo y acercar. Vive por encima de todo lo demás salvo
+   la caja de errores, porque se abre DESDE esas otras capas. Cerrarla no
+   avanza el guion: se vuelve exactamente a donde se estaba. */
+#lupa{
+  position:fixed;inset:0;z-index:18;display:none;
+  place-content:center;padding:clamp(12px,3vw,32px);
+  background:rgba(20,26,38,.86);cursor:zoom-out;
+  animation:ventanaIn .25s ease both;
+}
+#lupa.on{ display:grid; }
+#lupa-img{
+  max-width:94vw;max-height:88vh;object-fit:contain;
+  border-radius:10px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.6);
+  cursor:zoom-in;transform-origin:center;
+  /* el desplazamiento va en --x/--y: arrastrando se tocan esas dos, y el
+     zoom se queda quieto en --escala */
+  transform:translate(var(--x,0px),var(--y,0px)) scale(var(--escala,1));
+  transition:transform .28s cubic-bezier(.22,.61,.36,1);
+  will-change:transform;
+}
+/* Acercada se arrastra con el ratón, no con barras de desplazamiento: el
+   contenedor recorta y la imagen se mueve. */
+#lupa.zoom{ overflow:hidden; }
+#lupa.zoom #lupa-img{ cursor:grab; }
+#lupa.zoom #lupa-img.arrastrando{ cursor:grabbing;transition:none; }
+
+/* X de cierre, compartida por la lupa y por el resumen de conclusiones */
+.cerrar-x{
+  position:fixed;top:clamp(12px,2.5vw,22px);right:clamp(12px,2.5vw,22px);
+  z-index:2;width:44px;height:44px;border-radius:999px;cursor:pointer;
+  display:grid;place-content:center;
+  background:rgba(255,255,255,.92);color:var(--navy);
+  border:3px solid rgba(39,52,74,.16);
+  font:700 22px/1 ui-rounded,"Segoe UI",system-ui,sans-serif;
+  box-shadow:0 4px 14px rgba(0,0,0,.28);
+  transition:transform .18s ease,background-color .18s ease;
+}
+.cerrar-x:hover{ transform:scale(1.08);background:#fff; }
+
+/* ----------------------------------------------- aviso de "baje el mensaje" */
+/* Sale una sola vez, la primera que aparece una imagen: hasta ese punto todo
+   se ha hecho a clics, así que el botón de bajar el mensaje no se descubre
+   solo. La mano apunta al botón, abajo a la derecha. */
+#aviso-peek{
+  position:fixed;z-index:7;right:clamp(16px,4vw,40px);
+  bottom:calc(clamp(16px,4vh,40px) + 74px);
+  display:none;align-items:center;gap:10px;
+  max-width:min(280px,72vw);padding:12px 14px;
+  border-radius:16px;background:rgba(255,255,255,.96);
+  border:3px solid rgba(39,52,74,.14);box-shadow:0 10px 30px rgba(20,26,38,.28);
+  color:var(--navy);font-size:13px;line-height:1.35;font-weight:600;
+  pointer-events:none;
+  animation:avisoPeekIn .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+#aviso-peek.on{ display:flex; }
+@keyframes avisoPeekIn{ from{opacity:0;transform:translateY(10px) scale(.94)} to{opacity:1;transform:none} }
+/* el pico que lo une con el botón de abajo */
+#aviso-peek::after{
+  content:"";position:absolute;right:22px;bottom:-11px;
+  width:16px;height:16px;transform:rotate(45deg);
+  background:rgba(255,255,255,.96);
+  border-right:3px solid rgba(39,52,74,.14);
+  border-bottom:3px solid rgba(39,52,74,.14);
+}
+#aviso-peek img{ width:34px;height:auto;flex:none;animation:manoPulso 1.4s ease-in-out infinite; }
+@keyframes manoPulso{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+@media (prefers-reduced-motion:reduce){
+  #aviso-peek,#aviso-peek img{ animation:none; }
+  #lupa-img{ transition:none; }
+}

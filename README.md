@@ -8,14 +8,19 @@ El visor tambien monta a la Profesora, un segundo personaje intercambiable
 
 ```
 docs/
-  index.html            visor: cambia entre K-7 y la Profesora; 3 modelos,
+  index.html            inicio del sitio: elegir entre el laboratorio de
+                         mecanicas, el visor 3D y la charla
+  mecanicas/             laboratorio de mecanicas para docentes: copia
+                          estatica del prototipo de Montaje, sin servidor ni
+                          LLM. Ver docs/mecanicas/LEEME.md.
+  visor.html             visor: cambia entre K-7 y la Profesora; 3 modelos,
                          3 paletas y 6 poses para K-7; 5 gestos para la
                          Profesora
   charla.html            la escena de conversacion con K-7
   character/             K-7 y la Profesora empaquetados para reutilizarse en
                           otro proyecto: assets (robot/bocas/ojos.glb,
                           profesora.glb, paleta.js) + los modulos k7.js /
-                          profesora.js que index.html comparte con charla.html.
+                          profesora.js que visor.html comparte con charla.html.
                           Ver docs/character/README.md.
   implementos.glb        mesa, silla y tablero del fondo de la charla
   robot_rigged.glb       solo el Modelo1 de K-7; es la fuente del rig
@@ -71,7 +76,7 @@ blender -b -P build_ojos.py
 ```
 
 Toda la lógica de qué boca/ojos van con cada modelo y cada gesto vive en
-`docs/character/k7.js`, compartida por `index.html` y `charla.html`. Ver
+`docs/character/k7.js`, compartida por `visor.html` y `charla.html`. Ver
 `docs/character/README.md` para el detalle completo.
 
 ## Los tres modelos
@@ -259,8 +264,10 @@ cd docs
 python -m http.server 8000
 ```
 
-Y abrir <http://localhost:8000>. Hace falta un servidor: los módulos ES y la
-carga del `.glb` no funcionan abriendo el archivo con `file://`.
+Y abrir <http://localhost:8000>: sale el inicio, que lleva al laboratorio de
+mecánicas (`/mecanicas/`), al visor (`/visor.html`) y a la charla. Hace falta
+un servidor: los módulos ES y la carga del `.glb` no funcionan abriendo el
+archivo con `file://`.
 
 ## Publicar en GitHub Pages
 

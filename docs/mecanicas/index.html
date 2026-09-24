@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio de mecánicas</title>
+<meta name="description" content="Prototipo para docentes: seis formas nuevas de interactuar con K-7 en el aula 3D de la Expedición Docente.">
+<link rel="icon" href="img/logo-icono.svg" type="image/svg+xml">
+<link rel="icon" href="img/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="img/favicon-180.png">
+<link rel="stylesheet" href="css/escena.css">
+<link rel="stylesheet" href="css/pantallas.css">
+<link rel="stylesheet" href="css/navegacion.css">
+<link rel="stylesheet" href="css/imagenes.css">
+<link rel="stylesheet" href="css/laboratorio.css">
+</head>
+<body>
+
+<div id="app"></div>
+
+<button id="log-btn" aria-expanded="false" title="Ver la conversación anterior">
+  <i><b></b><b></b><b></b></i><u></u>
+</button>
+
+<div id="log">
+  <p id="log-titulo"></p>
+  <div id="log-tabs"></div>
+  <div id="log-inner">
+    <h3>lo que llevamos hablado</h3>
+    <div id="log-empty">Todavía no hay mensajes anteriores.</div>
+  </div>
+</div>
+
+<div id="topbar">
+  <button id="menu-link" type="button" title="Ver todas las estaciones">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="5" height="5" rx="1.4"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.4"/><rect x="1.5" y="9.5" width="5" height="5" rx="1.4"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.4"/></svg>
+    <span>Estaciones</span>
+  </button>
+  <img id="topbar-logo" src="img/logo-icono.svg"
+       alt="Escuela Inteligente · Expedición Docente" width="268" height="267">
+</div>
+
+<!-- Una estación por mecánica. Los íconos son los de la expedición de la que
+     sale el contenido de cada estación (la 1 y la 2 salen de la Expedición 1). -->
+<div id="timeline">
+  <button class="tl-node c1" data-exp="0" type="button" title="Estación 1 · Marcar problemas"><img src="img/exp1/icon-f1.webp" alt=""></button>
+  <button class="tl-node c1" data-exp="1" type="button" title="Estación 2 · Armar el contexto"><img src="img/exp1/icon-f1.webp" alt=""></button>
+  <button class="tl-node c2" data-exp="2" type="button" title="Estación 3 · Usar, ajustar o descartar"><img src="img/exp2/icon-f2.webp" alt=""></button>
+  <button class="tl-node c3" data-exp="3" type="button" title="Estación 4 · Cazar invenciones"><img src="img/exp3/icon-f3.webp" alt=""></button>
+  <button class="tl-node c4" data-exp="4" type="button" title="Estación 5 · Rediseñar la clase"><img src="img/exp4/icon-f4.webp" alt=""></button>
+  <button class="tl-node c5" data-exp="5" type="button" title="Estación 6 · Documentar una práctica"><img src="img/exp5/icon-f5.webp" alt=""></button>
+</div>
+
+<button id="peek-btn" type="button" title="Bajar el mensaje para ver la pizarra">&#9662;</button>
+
+<div id="hud">
+  <div id="box-wrap">
+    <div id="nametag">K-7</div>
+    <div id="box">
+      <div id="text"></div>
+      <div id="choices"></div>
+      <div id="sugerencias"></div>
+      <form id="form" autocomplete="off">
+        <input id="entry" placeholder="Escriba aquí su respuesta…" maxlength="400">
+        <button id="send" type="submit">Enviar</button>
+      </form>
+      <div id="next"></div>
+    </div>
+  </div>
+</div>
+
+<div id="chapter">
+  <div id="chapter-icon"><img id="chapter-icon-img" alt=""></div>
+  <h2 id="chapter-numero"></h2>
+  <hr id="chapter-rule">
+  <h3 id="chapter-subtitulo"></h3>
+  <p id="chapter-nota"></p>
+  <!-- ficha técnica de la mecánica que se prueba en la estación -->
+  <div id="chapter-lab"></div>
+  <p id="chapter-cta">Empieza por aquí</p>
+  <button id="chapter-btn" type="button" class="next-exp-btn">
+    <span class="next-exp-icon"><span class="play-tri"></span></span>
+    <span>Clic para continuar</span>
+  </button>
+</div>
+
+<div id="conclusion">
+  <div id="conclusion-stack">
+    <div id="conclusion-medallion"><img id="conclusion-insignia" alt="Insignia de la expedición"></div>
+    <div id="conclusion-card">
+      <div id="conclusion-inner">
+        <p id="conclusion-banner">¡Felicitaciones, docente!</p>
+        <p id="conclusion-sub">Has finalizado con éxito la</p>
+        <div id="conclusion-pill">
+          <span id="conclusion-pill-icon"><img id="conclusion-pill-icon-img" alt=""></span>
+          <span id="conclusion-pill-texto">
+            <b id="conclusion-pill-exp"></b>
+            <span id="conclusion-pill-dim"></span>
+          </span>
+        </div>
+        <p id="conclusion-titulo"></p>
+      </div>
+    </div>
+    <div id="conclusion-acciones">
+      <button id="conclusion-ver-btn" type="button">Ver conclusiones</button>
+      <button id="conclusion-btn" type="button" class="next-exp-btn">
+        <span class="next-exp-icon"><img id="conclusion-btn-icon" alt=""></span>
+        <span id="conclusion-btn-label"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="conclusion-lightbox">
+  <img id="conclusion-resumen" alt="Resumen de la expedición">
+  <button class="cerrar-x" id="conclusion-cerrar" type="button" aria-label="Cerrar el resumen">&#10005;</button>
+</div>
+
+<div id="lupa">
+  <img id="lupa-img" alt="Imagen ampliada">
+  <button class="cerrar-x" id="lupa-cerrar" type="button" aria-label="Cerrar la imagen">&#10005;</button>
+</div>
+
+<div id="aviso-peek">
+  <img src="img/mano.png" alt="">
+  <span>Puede <b>bajar el mensaje</b> con este botón para ver la imagen completa. Y si la toca, la abre en grande.</span>
+</div>
+
+<canvas id="chalk"></canvas>
+<img id="board-img" alt="">
+<img id="insignia-img" alt="">
+
+<div id="confirmar-salto">
+  <div id="confirmar-salto-card">
+    <p id="confirmar-salto-texto"></p>
+    <div id="confirmar-salto-botones">
+      <button id="confirmar-salto-cancelar" type="button">Cancelar</button>
+      <button id="confirmar-salto-aceptar" type="button">Sí, cambiar</button>
+    </div>
+  </div>
+</div>
+
+<div id="ventana">
+  <img id="ventana-img" alt="Imagen compartida">
+  <p id="ventana-hint">clic para continuar</p>
+</div>
+
+<!-- ============================================ capas del laboratorio === -->
+
+<!-- donde cada mecánica abre su ventana (ver ventana() en js/lab.js) -->
+<div id="mec"></div>
+
+<!-- lo que K-7 dice mientras no hay ventana abierta (p. ej. durante la
+     prueba con el grupo) -->
+<div id="k7-toast" aria-live="polite">
+  <span class="k7-toast-cara"><img src="img/k7.webp" alt=""></span>
+  <span class="k7-toast-texto"></span>
+</div>
+
+<!-- reacciones del grupo sobre los pupitres del aula 3D -->
+<div id="pupitres"></div>
+<div id="medidor" aria-live="polite">
+  <span id="medidor-titulo">Conexión del grupo</span>
+  <span id="medidor-barra"><i></i></span>
+  <b id="medidor-n">0%</b>
+</div>
+
+<!-- menú de estaciones: la entrada al laboratorio, y el mismo menú cuando se
+     vuelve a abrir desde la barra de arriba. Las tarjetas las arma lab.js con
+     la tarjeta de capítulo de cada estación (guiones/estaciones.js). -->
+<div id="bienvenida" role="dialog" aria-modal="true" aria-labelledby="bienvenida-tit">
+  <div id="bienvenida-card">
+    <div id="bienvenida-barra">
+      <a id="bienvenida-inicio" href="../">&larr; Inicio</a>
+      <button id="bienvenida-cerrar" type="button" aria-label="Cerrar el menú y volver a la estación">&#10005;</button>
+    </div>
+    <div id="bienvenida-cab">
+      <div>
+        <p id="bienvenida-kicker">Prototipo &middot; para probar con docentes</p>
+        <h1 id="bienvenida-tit">Laboratorio de mecánicas</h1>
+        <p id="bienvenida-intro">Seis formas nuevas de interactuar con K-7, una por estación. Pruébelas antes de decidir cuáles pasan a la Expedición Docente.</p>
+      </div>
+      <div id="bienvenida-cta">
+        <button id="bienvenida-btn" type="button">Recorrer las seis en orden</button>
+        <span id="bienvenida-cta-nota">&asymp; 15 min en total</span>
+      </div>
+    </div>
+    <p id="bienvenida-o">O entre directo a una estación</p>
+    <ol id="bienvenida-lista"></ol>
+    <div id="bienvenida-pie">
+      <fieldset id="bienvenida-ritmo">
+        <legend>Diálogo de K-7</legend>
+        <div class="ritmo-opciones">
+          <label><input type="radio" name="ritmo" value="rafagas"><span>En ráfagas</span></label>
+          <label><input type="radio" name="ritmo" value="clasico"><span>Clásico</span></label>
+        </div>
+        <p id="bienvenida-ritmo-ayuda"></p>
+      </fieldset>
+      <p id="bienvenida-ayuda">Dentro del aula, el botón <b>Estaciones</b> de arriba a la derecha vuelve a este menú.</p>
+    </div>
+  </div>
+</div>
+
+<!-- fin del recorrido -->
+<div id="final">
+  <div id="final-card">
+    <h2>Fin del laboratorio</h2>
+    <p>Gracias por recorrerlo. Puede volver a cualquier estación para probarla otra vez.</p>
+    <div id="final-acciones">
+      <a id="final-inicio" href="../">Volver al inicio</a>
+      <button id="final-estaciones" type="button">Ver las estaciones</button>
+    </div>
+  </div>
+</div>
+
+<div id="loader">
+  <div class="door door-left"><span class="door-glass"></span><span class="door-handle"></span></div>
+  <div class="door door-right"><span class="door-glass"></span><span class="door-handle"></span></div>
+  <div id="loader-copy">
+    <div class="bar"><i></i></div>
+    <div id="loader-txt">encendiendo el laboratorio…</div>
+  </div>
+</div>
+<div id="curtain" class="done">
+  <div class="curtain-panel curtain-left"></div>
+  <div class="curtain-panel curtain-right"></div>
+</div>
+<pre id="err"></pre>
+
+<!-- Las dos únicas piezas que cambian respecto de la expedición real: el guion
+     (partida.js) y el motor (motor.js, con los nodos nuevos). Todo lo demás
+     -escena, elenco, aula, pizarra, navegación, historial- es el código real,
+     cargado desde apps/expedicion/js/ sin tocarlo. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "../vendor/three/three.module.js",
+    "three/addons/": "../vendor/three/addons/"
+  }
+}
+</script>
+
+<script type="module" src="js/arranque.js"></script>
+
+</body>
+</html>

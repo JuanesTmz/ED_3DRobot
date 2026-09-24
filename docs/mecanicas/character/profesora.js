@@ -1,5 +1,5 @@
 // Profesora, empaquetada con la misma forma de API que K7 (ver k7.js) para
-// que visor.html pueda tratar a los dos personajes de manera intercambiable:
+// que index.html pueda tratar a los dos personajes de manera intercambiable:
 // cargar(), agregarA(), actualizar(dt), reproducir(nombreAnim), hablar().
 //
 // A diferencia de K-7 no tiene variantes de modelo ni paleta propia: un solo
@@ -68,7 +68,7 @@ export class Profesora {
     this.hPecho = null;
 
     this.bocaEnReposo = 'feliz';
-    this._paleta = 'uno';
+    this._paleta = 'tres';   // misma paleta fija que K-7 en este proyecto
     this._activeAction = null;
     this._bocaPuesta = null;
 
@@ -76,9 +76,11 @@ export class Profesora {
   }
 
   async cargar({ onProgress } = {}) {
+    // sin cache-bust: dejar que el navegador cachee estos .glb entre
+    // visitas (ver la misma nota en character/k7.js).
     const [gltfProfe] = await Promise.all([
-      this._cargarGLTF(`${this.base}/profesora.glb?v=${Date.now()}`, onProgress),
-      this._cargarCaras(`${this.base}/bocas.glb?v=${Date.now()}`, NOMBRES_BOCA, this.bocas),
+      this._cargarGLTF(`${this.base}/profesora.glb`, onProgress),
+      this._cargarCaras(`${this.base}/bocas.glb`, NOMBRES_BOCA, this.bocas),
     ]);
     if (gltfProfe) this._montarRobot(gltfProfe);
     this._montarCara();

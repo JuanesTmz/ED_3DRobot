@@ -21,7 +21,7 @@ Su **cara** comparte materiales con K-7: los ojos llevan `M_navy` (el iris) y
 paleta que K-7 los dos tienen ojos y boca del mismo color en las tres, y no
 solo en la primera. Su ropa no se entera: el resto de sus materiales lleva
 sufijo (`M_navy.002` la camisa, `M_outline_profesora` el contorno) y por eso
-no tiene rol. `index.html` es el ejemplo real de como cambiar entre los
+no tiene rol. `visor.html` es el ejemplo real de como cambiar entre los
 dos personajes en la misma escena.
 
 ```
@@ -66,7 +66,7 @@ k7.hablar(true);                        // prende el lipsync + cabeceo; false lo
 k7.bocaEnReposo = 'pensando';           // boca a la que vuelve cuando hablar(false)
 ```
 
-`index.html` (el visor, con las 6 poses) y `charla.html` (la conversación,
+`visor.html` (el visor, con las 6 poses) y `charla.html` (la conversación,
 que solo usa `hablar()`) son los dos ejemplos reales de integración en este
 mismo repo — ante la duda de cómo cablear algo, mirar ahí.
 
@@ -99,7 +99,7 @@ posición/escala sin distinción.
 ## Tabla de gestos (`GESTO_DE_ANIM`)
 
 Qué boca y qué ojos le corresponden a cada animación cuando se llama a
-`k7.reproducir(nombre)` (usado por `index.html`, que muestra las 6 poses):
+`k7.reproducir(nombre)` (usado por `visor.html`, que muestra las 6 poses):
 
 | Animación      | Boca       | Ojos          |
 |----------------|------------|---------------|

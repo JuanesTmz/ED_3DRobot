@@ -1,0 +1,259 @@
+/* Expedición Docente · Tarjetas a pantalla completa (capítulo, conclusión, confirmación),
+   puertas, telón y caja de errores. */
+/* ------------------------------------------------------------- capítulos */
+/* Tarjeta de inicio de cada expedición: ícono circular propio de la
+   expedición (icon-f1/f2/f3.webp, ya usados en la línea de tiempo y en el
+   botón de "siguiente expedición" del cierre), número, línea divisoria,
+   título/nota y un botón específico "Clic para continuar" -reutiliza
+   .next-exp-btn y su esquema de color c1/c2/c3, uno por expedición. */
+#chapter{
+  position:fixed;inset:0;z-index:8;display:none;
+  place-content:center;justify-items:center;text-align:center;
+  background:rgba(238,241,246,.94);backdrop-filter:blur(6px);padding:30px;
+}
+#chapter.on{display:grid}
+#chapter-icon{
+  width:clamp(110px,16vw,160px);aspect-ratio:1/1;margin-bottom:16px;
+}
+#chapter-icon img{width:100%;height:100%;object-fit:contain}
+#chapter h2{
+  margin:0 0 18px;font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em;
+  color:var(--navy);
+}
+#chapter-rule{
+  width:min(320px,60vw);border:0;border-top:1px solid rgba(39,52,74,.16);margin:0 0 18px;
+}
+#chapter h3{
+  margin:0 0 10px;max-width:26ch;font-size:clamp(20px,3.4vw,28px);font-weight:800;
+  letter-spacing:-.01em;color:var(--navy);
+}
+#chapter-nota{
+  margin:0 0 20px;max-width:44ch;font-size:clamp(14px,2vw,18px);line-height:1.6;
+  color:rgba(39,52,74,.62);font-weight:500;
+}
+#chapter-cta{
+  margin:0 0 4px;font-size:14px;font-weight:800;color:var(--navy);
+}
+#chapter-btn{margin-top:14px}
+
+/* -------------------------------------------- confirmación de salto --- */
+/* Modal simple, por encima de todo (incluida la tarjeta de capítulo y las
+   puertas/cortinas): un salto manual por la línea de tiempo siempre pide
+   confirmación, porque reinicia esa expedición desde cero y deja a medias
+   la que estaba en curso. Ver confirmarSalto() en el JS. */
+#confirmar-salto{
+  position:fixed;inset:0;z-index:16;display:none;
+  place-content:center;padding:24px;
+  background:rgba(20,26,38,.55);
+}
+#confirmar-salto.on{display:grid}
+#confirmar-salto-card{
+  max-width:min(420px,90vw);background:#fff;border-radius:20px;
+  padding:26px 28px;box-shadow:0 20px 50px rgba(0,0,0,.35);text-align:center;
+}
+#confirmar-salto-texto{
+  margin:0 0 20px;font-size:15px;line-height:1.55;color:var(--navy);
+}
+#confirmar-salto-texto b{color:var(--tag)}
+#confirmar-salto-botones{display:flex;gap:12px;justify-content:center}
+#confirmar-salto-botones button{
+  font:inherit;font-weight:700;border-radius:14px;padding:11px 18px;cursor:pointer;
+  border:2px solid rgba(39,52,74,.14);background:#fff;color:var(--navy);
+  transition:transform .12s,border-color .12s;
+}
+#confirmar-salto-botones button:hover{transform:translateY(-1px)}
+#confirmar-salto-aceptar{
+  background:var(--tag);border-color:var(--tag);color:#fff;
+}
+
+/* ------------------------------------------------------- fin de expedición */
+/* Aparece con las puertas (o cortinas) del aula ya cerradas (ver #loader
+   más abajo): ellas hacen de fondo, esta tarjeta flota encima. Rediseñada
+   para que se vea limpia -antes era un bloque con el resumen incrustado a
+   la izquierda, que la ensuciaba; ahora el resumen se ve aparte, con el
+   botón "Ver conclusiones" (ver #conclusion-lightbox). */
+#conclusion{
+  position:fixed;inset:0;z-index:12;display:none;
+  place-content:center;justify-items:center;padding:24px;
+}
+#conclusion.on{display:grid}
+#conclusion-stack{
+  width:min(600px,94vw);display:flex;flex-direction:column;align-items:center;
+  animation:conclusionIn .5s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes conclusionIn{ from{opacity:0;transform:scale(.85) translateY(10px)} to{opacity:1;transform:none} }
+/* medallón con la insignia, apoyado sobre el marco (que sube por debajo
+   con un margen negativo, en vez de superponer con position) */
+#conclusion-medallion{
+  position:relative;z-index:2;width:190px;height:190px;border-radius:50%;
+  background:#fff;box-shadow:0 12px 30px rgba(39,52,74,.3);
+  display:grid;place-content:center;padding:18px;margin-bottom:-70px;
+}
+#conclusion-insignia{ width:100%;height:100%;object-fit:contain; }
+/* marco exterior a rayas: el mismo recurso que la presentación de
+   personajes en apps/web (.frame + .frame__inner en styles.css) — franjas
+   diagonales sobre azul, con un borde grueso oscuro por dentro. */
+#conclusion-card{
+  position:relative;z-index:1;width:100%;box-sizing:border-box;
+  padding:20px 18px 32px;border-radius:36px;
+  background-color:var(--blue);background-image:var(--stripes);
+  box-shadow:0 22px 55px rgba(39,52,74,.35);
+}
+#conclusion-inner{
+  border:6px solid var(--navy);border-radius:26px;background:#f4f4f4;
+  padding:88px 32px 32px;text-align:center;
+}
+#conclusion-banner{
+  display:inline-block;margin:0 0 12px;background:var(--hl);color:#fff;
+  font-weight:800;font-size:clamp(19px,3vw,25px);
+  padding:9px 24px;border-radius:12px;
+}
+#conclusion-sub{ margin:0 0 20px;font-size:clamp(15px,2vw,18px);font-weight:600;color:var(--navy); }
+#conclusion-pill{
+  display:inline-flex;align-items:center;gap:18px;text-align:left;
+  max-width:100%;background:#fff;border:1px solid rgba(39,52,74,.12);
+  border-radius:22px;padding:14px 28px 14px 14px;margin:0 0 20px;
+  box-shadow:0 3px 10px rgba(39,52,74,.1);
+}
+#conclusion-pill-icon{
+  flex:none;width:72px;height:72px;border-radius:50%;background:#fff;
+  border:2px solid var(--navy);display:grid;place-content:center;
+  box-shadow:0 1px 4px rgba(39,52,74,.15);
+}
+#conclusion-pill-icon img{ width:62px;height:62px;object-fit:contain; }
+#conclusion-pill-exp{
+  display:inline-block;font-size:13.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.04em;padding:5px 13px;border-radius:999px;margin-bottom:6px;
+  background:var(--hl);color:#fff;   /* color por defecto; cN lo sobreescribe */
+}
+#conclusion-pill-exp.c1{ background:#fa2af4;color:#5c0a58; }
+#conclusion-pill-exp.c2{ background:#f8eb32;color:#5c5300; }
+#conclusion-pill-exp.c3{ background:#63bdf7;color:#0d4863; }
+#conclusion-pill-exp.c4{ background:#f7941d;color:#6b3900; }
+#conclusion-pill-exp.c5{ background:#04ef77;color:#0a5c37; }
+#conclusion-pill-dim{ display:block;font-size:clamp(15px,2.1vw,18px);font-weight:700;color:var(--navy); }
+#conclusion-titulo{
+  margin:0;font-size:14.5px;font-weight:600;font-style:italic;color:var(--ink-soft);
+}
+#conclusion-acciones{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:16px;margin-top:26px;
+}
+#conclusion-ver-btn{
+  font:inherit;font-weight:700;font-size:15px;color:var(--navy);
+  background:#fff;border:2px solid rgba(39,52,74,.2);border-radius:999px;
+  padding:12px 22px;cursor:pointer;transition:transform .12s,border-color .12s;
+}
+#conclusion-ver-btn:hover{ border-color:var(--blue);transform:translateY(-1px); }
+/* la imagen de resumen, aparte de la tarjeta: se ve al pulsar "Ver
+   conclusiones" (ver mostrarConclusion() en el JS) */
+#conclusion-lightbox{
+  position:fixed;inset:0;z-index:14;display:none;
+  place-content:center;padding:24px;background:rgba(20,26,38,.75);cursor:pointer;
+}
+#conclusion-lightbox.on{ display:grid; }
+#conclusion-resumen{
+  max-width:min(720px,92vw);max-height:86vh;object-fit:contain;
+  border-radius:16px;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.5);
+  border:3px solid rgba(255,255,255,.9);
+}
+/* Botón "Iniciar Expedición N": una píldora de color suave por expedición,
+   con el ícono de esa expedición en una insignia circular apoyada sobre
+   el borde izquierdo (ver icon-f2/f3/f4.png). Minimalista a propósito: sin
+   bordes gruesos ni adornos, solo color y una sombra leve. */
+.next-exp-btn{
+  position:relative;margin-left:29px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font:inherit;font-size:clamp(14px,1.6vw,17px);font-weight:700;
+  color:var(--btn-navy,#5c4a3a);background:var(--btn-color,#e8963c);
+  border:0;border-radius:999px;
+  padding:13px 24px 13px 46px;cursor:pointer;white-space:nowrap;
+  box-shadow:0 2px 8px rgba(39,52,74,.18);transition:transform .12s,filter .12s,box-shadow .12s;
+}
+.next-exp-btn:hover{ filter:brightness(1.04); box-shadow:0 3px 10px rgba(39,52,74,.22); }
+.next-exp-btn:active{ transform:translateY(1px); box-shadow:0 1px 4px rgba(39,52,74,.16); }
+.next-exp-btn .next-exp-icon{
+  position:absolute;left:-29px;top:50%;transform:translateY(-50%);
+  width:58px;height:58px;border-radius:50%;background:#fff;
+  display:grid;place-content:center;box-shadow:0 1px 4px rgba(39,52,74,.22);
+}
+.next-exp-icon img{width:50px;height:50px;object-fit:contain}
+/* triángulo de "play" para el botón de inicio de expedición (#chapter-btn):
+   mismo círculo blanco que next-exp-icon, sin necesitar un ícono aparte */
+.next-exp-icon .play-tri{
+  width:0;height:0;margin-left:4px;
+  border-top:10px solid transparent;border-bottom:10px solid transparent;
+  border-left:16px solid var(--btn-color);
+}
+/* colores tomados directamente del acento de cada icon-fN.webp, para que
+   el botón "Clic para continuar" concuerde con el ícono de su tarjeta */
+.next-exp-btn.c1{ --btn-color:#fa2af4; --btn-navy:#5c0a58; }
+.next-exp-btn.c2{ --btn-color:#f8eb32; --btn-navy:#5c5300; }
+.next-exp-btn.c3{ --btn-color:#63bdf7; --btn-navy:#0d4863; }
+.next-exp-btn.c4{ --btn-color:#f7941d; --btn-navy:#6b3900; }
+.next-exp-btn.c5{ --btn-color:#04ef77; --btn-navy:#0a5c37; }
+.next-exp-btn.c6{ --btn-color:#f5c518; --btn-navy:#5c4a02; }
+@media (max-width:640px){
+  #conclusion-medallion{ width:140px;height:140px;margin-bottom:-56px; }
+  #conclusion-inner{ padding-top:70px;padding-left:20px;padding-right:20px; }
+}
+
+
+/* Entrada: dos hojas de puerta de aula cubren la escena mientras carga y se
+   abren hacia los lados, partiendo del centro, cuando K-7 ya está listo —
+   como si el docente entrara al salón. */
+#loader{position:fixed;inset:0;z-index:11;display:flex;pointer-events:auto}
+#loader.done{pointer-events:none}
+#loader .door{
+  flex:1;position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#2f3b58 0%,#1c2438 100%);
+  box-shadow:inset 0 0 60px rgba(0,0,0,.35);
+  transition:transform 1.1s cubic-bezier(.7,0,.3,1) .15s;
+}
+#loader .door-left{border-right:5px solid rgba(0,0,0,.35)}
+#loader .door-right{border-left:5px solid rgba(0,0,0,.35)}
+#loader.done .door-left{transform:translateX(-100%)}
+#loader.done .door-right{transform:translateX(100%)}
+#loader .door-glass{
+  position:absolute;top:20%;left:50%;transform:translateX(-50%);
+  width:38%;aspect-ratio:1/1.4;border-radius:8px;
+  background:linear-gradient(160deg,#c9d8f5,#93a8d6);
+  box-shadow:inset 0 0 16px rgba(0,0,0,.3),0 0 0 6px rgba(255,255,255,.06);
+}
+#loader .door-handle{
+  position:absolute;top:54%;width:9px;height:32px;border-radius:5px;
+  background:var(--tag);box-shadow:0 0 0 2px rgba(0,0,0,.3);
+}
+#loader .door-left .door-handle{right:9%}
+#loader .door-right .door-handle{left:9%}
+#loader-copy{
+  position:absolute;inset:0;z-index:1;display:grid;place-content:center;gap:14px;
+  justify-items:center;color:rgba(255,255,255,.85);font-size:13px;
+  transition:opacity .35s;
+}
+#loader.done #loader-copy{opacity:0}
+
+/* Telones de teatro: mismo mecanismo que #loader (dos hojas que se cierran
+   al centro y se abren hacia los lados), pero con look de terciopelo rojo
+   en vez de puerta de aula. Ver cerrarCortinas()/abrirCortinas() más abajo. */
+#curtain{position:fixed;inset:0;z-index:11;display:flex;pointer-events:none}
+#curtain:not(.done){pointer-events:auto}
+#curtain .curtain-panel{
+  flex:1;position:relative;overflow:hidden;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 16px, rgba(255,255,255,.05) 16px 32px),
+    linear-gradient(180deg,#9c1526 0%,#6e0d1c 55%,#440813 100%);
+  box-shadow:inset 0 0 90px rgba(0,0,0,.55), inset 0 -40px 60px rgba(0,0,0,.35);
+  transition:transform 1.1s cubic-bezier(.7,0,.3,1) .15s;
+}
+#curtain .curtain-left{border-right:5px solid rgba(0,0,0,.4)}
+#curtain .curtain-right{border-left:5px solid rgba(0,0,0,.4)}
+#curtain.done .curtain-left{transform:translateX(-100%)}
+#curtain.done .curtain-right{transform:translateX(100%)}
+.bar{width:170px;height:4px;border-radius:2px;background:rgba(255,255,255,.18);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--tag);transition:width .2s}
+#err{
+  position:fixed;inset:auto 20px 20px 20px;padding:14px 16px;border-radius:10px;
+  background:#3b1220;color:#ffd9e4;font:12px/1.5 ui-monospace,monospace;
+  white-space:pre-wrap;display:none;z-index:20;
+}

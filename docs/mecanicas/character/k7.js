@@ -1,6 +1,6 @@
 // K-7, empaquetado para reusarse en cualquier escena three.js.
 //
-// Junta en un solo lugar todo lo que antes vivia duplicado entre visor.html
+// Junta en un solo lugar todo lo que antes vivia duplicado entre index.html
 // (el visor, con sus 6 poses) y charla.html (la conversacion, que solo mueve
 // la boca al hablar): cargar los tres modelos, colgarles boca y ojos sueltos
 // del hueso 'head', cambiar de gesto, pintarlos con una paleta.
@@ -14,7 +14,7 @@
 
 import { aplicarPaleta as aplicarPaletaBase } from './paleta.js';
 import { Habla } from './habla.js';
-export { aplicarPaleta, conectarBotones, PALETAS, ROL_DE_MATERIAL } from './paleta.js';
+export { aplicarPaleta, PALETAS, ROL_DE_MATERIAL } from './paleta.js';
 
 // Los tres modelos comparten armature y las mismas 6 animaciones (Idle mas 5
 // gestos), asi que cambiar de modelo es solo alternar visibilidad.
@@ -88,9 +88,10 @@ export class K7 {
     this.hCabeza = null;
     this.hPecho = null;
 
-    this.modelo = MESHES[0];
+    // Este proyecto fija a K-7 en Modelo3 + Paleta3: no se ofrece selector.
+    this.modelo = 'Modelo3';
     this.bocaEnReposo = 'feliz';   // a la que vuelve elegirBoca() cuando no habla
-    this._paleta = 'uno';
+    this._paleta = 'tres';
 
     this._activeAction = null;
     this._bocaPuesta = null;
@@ -98,18 +99,19 @@ export class K7 {
 
     // hablar(): lipsync + cabeceo (ver habla.js). Se activa solo si alguna
     // vez se llama a hablar(), para no pisar la boca que puso aplicarGesto()
-    // en escenas que usan las 6 poses (visor.html).
+    // en escenas que usan las 6 poses (index.html).
     this._habla = new Habla(THREE);
   }
 
   /** Carga robot.glb + bocas.glb + ojos.glb y monta la cara. */
   async cargar({ onProgress } = {}) {
+    // sin cache-bust: dejar que el navegador cachee estos .glb entre
+    // visitas. Si se re-exportan durante el desarrollo, un hard-refresh
+    // (ctrl+shift+r) fuerza la recarga.
     const [gltfRobot] = await Promise.all([
-      // cache-bust: estos tres assets se re-exportan seguido mientras se
-      // ajustan poses/gestos, y el navegador los sirve cacheados sin avisar
-      this._cargarGLTF(`${this.base}/robot.glb?v=${Date.now()}`, onProgress),
-      this._cargarCaras(`${this.base}/bocas.glb?v=${Date.now()}`, NOMBRES_BOCA, this.bocas),
-      this._cargarCaras(`${this.base}/ojos.glb?v=${Date.now()}`, NOMBRES_OJOS, this.ojos),
+      this._cargarGLTF(`${this.base}/robot.glb`, onProgress),
+      this._cargarCaras(`${this.base}/bocas.glb`, NOMBRES_BOCA, this.bocas),
+      this._cargarCaras(`${this.base}/ojos.glb`, NOMBRES_OJOS, this.ojos),
     ]);
     if (gltfRobot) this._montarRobot(gltfRobot);
     this._montarCara();
@@ -163,7 +165,7 @@ export class K7 {
   // ---------------------------------------------------------- animaciones --
 
   /** Cambia de pose con mezcla de pesos (fadeOut/fadeIn) y aplica su gesto.
-   *  Pensado para escenas con las 6 poses (ver visor.html). */
+   *  Pensado para escenas con las 6 poses (ver index.html). */
   reproducir(nombreAnim, duracion = 0.5) {
     const next = this.actions[nombreAnim];
     if (!next || next === this._activeAction) return;

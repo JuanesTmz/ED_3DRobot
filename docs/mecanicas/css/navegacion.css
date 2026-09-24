@@ -1,0 +1,233 @@
+/* Expedición Docente · Barra de arriba, línea de tiempo e historial de la charla. */
+/* ------------------------------------------------------------------ misc */
+/* K-7 va fijo en Modelo3 + Paleta3 en este proyecto: no hay selector.
+   #topbar solo da la vuelta al menú (y le sirve a frame() de referencia
+   para saber cuánto hueco libre queda arriba del personaje). */
+#topbar{
+  position:fixed;top:18px;right:20px;z-index:6;display:flex;align-items:center;
+  padding:6px;border-radius:999px;background:rgba(255,255,255,.72);
+  border:1px solid rgba(39,52,74,.10);box-shadow:0 6px 22px rgba(39,52,74,.13);
+  backdrop-filter:blur(10px);
+}
+#topbar-logo{width:24px;height:24px;margin-left:6px;display:block}
+#menu-link{
+  font:inherit;font-size:12px;font-weight:700;color:var(--navy);
+  text-decoration:none;padding:7px 14px;border-radius:999px;
+}
+#menu-link:hover{background:var(--tag);color:#fff}
+
+/* --------------------------------------------------- línea de tiempo --- */
+/* Retráctil, como un menú hamburguesa: cerrada (por defecto) solo se ve el
+   nodo `.activo` -el de la expedición en curso-, arriba del todo. Al
+   abrirla (ver alternarTimeline() en el JS) los demás nodos crecen desde
+   0 de alto y empujan al activo hacia su puesto real en la lista: por
+   eso "baja y toma su lugar" solo. */
+#timeline{
+  position:fixed;top:88px;right:30px;z-index:6;
+  display:flex;flex-direction:column;align-items:center;
+  padding:8px 0;
+}
+/* El espaciado entre nodos es margin-bottom (no `gap`) a propósito: un
+   nodo bloqueado/colapsado a 0 de alto igual reservaría el hueco de un
+   `gap` completo antes y después suyo, y la línea de abajo terminaba
+   "cortada" apuntando a un centro que ya no existe. Con margin, el nodo
+   justo antes de uno bloqueado (ver :has() más abajo) se queda sin ese
+   margen, así el hueco desaparece del todo con él. */
+.tl-node{ margin-bottom:30px; }
+.tl-node:last-child,
+.tl-node:has(+ .tl-node.bloqueado){ margin-bottom:0; }
+/* La línea conecta los centros del primer y el último nodo visibles.
+   Como el padding y el alto de nodo son fijos, esa distancia siempre es
+   la misma (padding + medio nodo) sin importar cuántos nodos haya en
+   medio -por eso no hace falta calcularla por JS. */
+#timeline::before{
+  content:"";position:absolute;top:40px;bottom:40px;left:50%;
+  width:2px;transform:translateX(-50%);border-radius:2px;z-index:-1;
+  background:linear-gradient(180deg,
+    transparent 0, rgba(39,52,74,.28) 12px, rgba(39,52,74,.28) calc(100% - 12px), transparent 100%);
+  transition:opacity .2s ease;
+}
+#timeline:not(.abierta)::before{ opacity:0; }
+.tl-node{
+  position:relative;width:64px;height:64px;padding:0;border-radius:50%;cursor:pointer;
+  display:grid;place-content:center;background:#fff;flex:none;
+  border:1px solid rgba(39,52,74,.12);box-shadow:0 2px 6px rgba(39,52,74,.10);
+  opacity:.5;max-height:64px;
+  transition:transform .15s,opacity .15s,max-height .35s ease,margin-bottom .35s ease;
+}
+#timeline:not(.abierta) .tl-node:not(.activo){
+  max-height:0;opacity:0;transform:scale(.4);pointer-events:none;
+  margin-bottom:0;border-width:0;box-shadow:none;
+}
+.tl-node img{width:58px;height:58px;object-fit:contain}
+.tl-node--epilogo svg{width:36px;height:36px;fill:var(--anillo)}
+.tl-node:hover{transform:scale(1.05);opacity:.8}
+.tl-node.activo{ opacity:1; transform:scale(1.06); }
+/* Fase del Epílogo: arranca invisible y sin poder hacerle clic; al
+   completar la Expedición 5 (ver revelarFaseEpilogo() en el JS) se le
+   quita `bloqueado` y aparece con un salto, como si se "desbloqueara". */
+.tl-node.bloqueado{ opacity:0; transform:scale(.3); pointer-events:none; max-height:0; margin-bottom:0; }
+.tl-node--epilogo{ transition:transform .5s cubic-bezier(.34,1.56,.64,1), opacity .4s ease, margin-bottom .35s ease; }
+/* Color de cada fase, tomado del acento de su propio ícono (mismos tonos
+   que .next-exp-btn.cN en la tarjeta de capítulo): lo usa tanto el aro de
+   progreso como -en el caso del Epílogo, que no tiene ícono a color- el
+   birrete de la línea de tiempo. */
+.tl-node.c1{ --anillo:#fa2af4; }
+.tl-node.c2{ --anillo:#f8eb32; }
+.tl-node.c3{ --anillo:#63bdf7; }
+.tl-node.c4{ --anillo:#f7941d; }
+.tl-node.c5{ --anillo:#04ef77; }
+.tl-node.c6{ --anillo:#f5c518; }
+/* anillo de progreso, pegado al ícono (casi sin margen) — se llena en
+   sentido horario según qué tan cerca está el docente de terminar la
+   expedición activa (ver actualizarProgresoTimeline() en el JS) */
+.tl-node.activo::before{
+  content:"";position:absolute;inset:-1px;border-radius:50%;z-index:-1;
+  background:conic-gradient(var(--anillo, var(--tag)) calc(var(--progreso, 0) * 360deg), rgba(39,52,74,.12) 0);
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px));
+          mask:radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1.5px));
+  transition:background .3s ease;
+}
+/* ------------------------------------------- recorrido progresivo --- */
+/* Ojo: `trabado` no es lo mismo que `bloqueado`. `bloqueado` esconde el
+   nodo del todo (hoy solo el Epílogo, hasta que se completa la Exp. 5);
+   `trabado` lo deja a la vista pero apagado y sin paso, porque esa fase
+   todavía no se ha desbloqueado. Ver RECORRIDO_PROGRESIVO en el JS: con
+   la bandera en false no se pone ninguna de estas dos clases. */
+.tl-node.trabado{ cursor:not-allowed; }
+.tl-node.trabado img,
+.tl-node.trabado svg{ filter:grayscale(1) contrast(.7);opacity:.55; }
+.tl-node.trabado:hover{ transform:none;opacity:.5; }
+/* completada: se ve a color y más viva que una desbloqueada sin jugar */
+.tl-node.completada{ opacity:.85; }
+.tl-node.trabado::after,
+.tl-node.completada::after{
+  content:"";position:absolute;right:-2px;bottom:-2px;
+  width:22px;height:22px;border-radius:50%;
+  background:#fff center/12px 12px no-repeat;
+  border:1px solid rgba(39,52,74,.16);box-shadow:0 1px 3px rgba(39,52,74,.22);
+}
+.tl-node.trabado::after{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2327344a'%3E%3Cpath d='M12 2a5 5 0 0 0-5 5v3H6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V11a1 1 0 0 0-1-1h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z'/%3E%3C/svg%3E");
+}
+.tl-node.completada::after{
+  background-color:#04c765;border-color:rgba(39,52,74,.10);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M9.6 16.6 5 12l1.4-1.4 3.2 3.2 8-8L19 7.2z'/%3E%3C/svg%3E");
+}
+/* un nodo trabado no navega: el clic solo lo sacude, para que se note que
+   respondió y que está ahí a propósito */
+@keyframes tlSacudir{
+  0%,100%{ transform:translateX(0); }
+  25%{ transform:translateX(-4px); }
+  75%{ transform:translateX(4px); }
+}
+.tl-node.sacudir{ animation:tlSacudir .32s ease; }
+@media (max-width:560px){
+  #timeline{ top:70px;right:12px; }
+  .tl-node.trabado::after,
+  .tl-node.completada::after{ width:17px;height:17px;background-size:10px 10px; }
+  .tl-node{ width:46px;height:46px;max-height:46px;margin-bottom:20px; }
+  #timeline::before{ top:31px;bottom:31px; }
+  .tl-node img{ width:42px;height:42px; }
+  .tl-node--epilogo svg{ width:28px;height:28px; }
+  .tl-node.activo::before{ inset:-1px; }
+}
+
+/* ------------------------------------------- botón e historial de charla */
+#log-btn{
+  position:fixed;top:18px;left:20px;z-index:10;
+  width:56px;height:44px;border:0;padding:0;cursor:pointer;
+  background:rgba(255,255,255,.85);border-radius:16px 16px 16px 4px;
+  box-shadow:0 6px 22px rgba(39,52,74,.16);
+  display:grid;place-content:center;gap:4px;
+  transition:transform .14s,background .14s;
+}
+#log-btn:hover{transform:translateY(-2px);background:#fff}
+#log-btn i{display:flex;gap:4px}
+#log-btn i b{width:6px;height:6px;border-radius:50%;background:var(--tag);display:block}
+#log-btn[aria-expanded="true"] i b{background:var(--hl)}
+#log-btn u{
+  position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;
+  border-radius:999px;background:var(--hl);color:#fff;text-decoration:none;
+  font-size:11px;font-weight:800;line-height:20px;text-align:center;
+}
+#log-btn u:empty{display:none}
+
+#log{
+  position:fixed;inset:0;z-index:9;display:none;
+  /* sin backdrop-filter: Chrome no lo mezcla bien sobre el canvas WebGL */
+  background:rgba(20,26,38,.62);
+  flex-direction:column;
+  padding:86px clamp(14px,5vw,60px) 0;
+}
+#log.on{display:flex}
+/* nombre de la expedición activa, en el hueco fijo entre el marco de la
+   ventana y las pestañas (ver actualizarTituloLog() en el JS) */
+#log-titulo{
+  flex:0 0 auto;margin:0 0 10px;font-size:12px;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;text-align:center;
+  color:rgba(255,255,255,.75);
+}
+/* pestañas para ver el historial de una sola expedición a la vez: solo
+   aparecen cuando hay más de una completada, y solo por las que ya se
+   empezaron (ver actualizarTabsLog()/filtrarLog() en el JS). Un techo fijo
+   -no hacen scroll con el chat, y el chat nunca pasa detrás de ellas: por
+   eso no necesitan fondo ni caja, solo texto con un subrayado sutil. */
+#log-tabs{
+  flex:0 0 auto;
+  display:flex;gap:4px;justify-content:center;flex-wrap:wrap;
+  width:min(820px,100%);margin:0 auto 10px;
+}
+.log-tab{
+  font:inherit;font-size:11px;font-weight:700;letter-spacing:.03em;
+  text-transform:uppercase;color:rgba(255,255,255,.45);
+  background:transparent;border:0;border-bottom:2px solid transparent;
+  padding:5px 9px;cursor:pointer;transition:color .15s,border-color .15s;
+}
+.log-tab:hover{color:rgba(255,255,255,.75)}
+.log-tab.activo{color:#fff;border-color:var(--tag)}
+#log-inner{
+  flex:1 1 auto;min-height:0;overflow-y:auto;
+  width:min(820px,100%);margin:0 auto;padding-bottom:40px;
+  display:flex;flex-direction:column;gap:12px;
+  /* scroll intuitivo, sin barra visible (Firefox + WebKit/Chrome) */
+  scrollbar-width:none;
+}
+#log-inner::-webkit-scrollbar{display:none}
+#log h3{
+  margin:0 0 6px;font-size:13px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:rgba(255,255,255,.55);text-align:center;
+}
+.msg{
+  max-width:72%;padding:13px 18px;font-size:clamp(14px,1.7vw,17px);line-height:1.5;
+  font-weight:600;box-shadow:0 3px 14px rgba(0,0,0,.18);
+}
+.msg b{color:var(--hl)}
+.msg i{font-style:normal;color:var(--hl2)}
+.msg .from{
+  display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;opacity:.5;margin-bottom:4px;
+}
+.msg.k7{
+  align-self:flex-start;background:var(--paper);color:var(--ink);
+  border-radius:18px 18px 18px 5px;
+}
+/* la profe Vero comparte burbuja con K-7, pero no su color */
+.msg.k7.vero{background:#fdeef5}
+/* la imagen de la pizarra queda también como un mensaje aparte, justo
+   después del texto que la acompañó */
+.msg.img{max-width:88%}
+.msg.img img{display:block;width:100%;border-radius:14px;margin-top:6px}
+.msg.user{
+  align-self:flex-end;background:#a8effd;color:#17495a;
+  border-radius:18px 18px 5px 18px;
+}
+.msg.chapter{
+  align-self:center;max-width:none;background:transparent;box-shadow:none;
+  color:rgba(255,255,255,.65);font-size:12px;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;padding:6px 0;
+}
+#log-empty{
+  color:rgba(255,255,255,.55);text-align:center;font-size:14px;
+  font-weight:600;padding:40px 0;
+}

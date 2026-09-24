@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ED 3D Robot</title>
+<link rel="icon" href="img/logo-icono.svg" type="image/svg+xml">
+<style>
+  :root{
+    --magenta:#e7448c; --lime:#96c42e; --yellow:#f6bf1c;
+    --teal:#5a98bd;    --navy:#27344a;  --paper:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(120% 100% at 50% 0%,#fdfdff 0%,var(--paper) 55%,#dfe5ee 100%);
+    color:var(--navy);overflow:hidden;
+  }
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  header{
+    position:fixed;top:0;left:0;right:0;padding:22px 26px;
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    pointer-events:none;z-index:5;
+  }
+  h1{
+    margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;
+  }
+  h1 span{color:var(--magenta)}
+  .sub{font-size:13px;opacity:.55}
+  #links{display:flex;flex-direction:column;gap:3px}
+  #link-charla{
+    pointer-events:auto;color:var(--magenta);opacity:.9;
+    text-decoration:none;font-weight:600;
+  }
+  #link-charla:hover{text-decoration:underline}
+  #link-inicio{
+    pointer-events:auto;color:var(--navy);
+    text-decoration:none;font-weight:600;
+  }
+  #link-inicio:hover{text-decoration:underline;opacity:.9}
+
+  #panel{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    display:flex;gap:8px;padding:7px;border-radius:999px;z-index:5;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  button{
+    font:inherit;font-size:13px;font-weight:600;color:var(--navy);
+    padding:8px 16px;border:0;border-radius:999px;background:transparent;
+    cursor:pointer;transition:background .15s,color .15s;
+  }
+  button:hover{background:rgba(39,52,74,.07)}
+  button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+
+  #personajes{
+    position:fixed;top:18px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #personajes button{padding:7px 14px;font-size:12px}
+  #personajes button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+
+  #models{
+    position:fixed;top:64px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #models button{padding:7px 14px;font-size:12px}
+  #models button[aria-pressed="true"]{background:var(--teal)}
+
+  #palettes{
+    position:fixed;top:110px;right:26px;
+    display:flex;gap:6px;padding:6px;border-radius:999px;z-index:6;
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #palettes button{
+    display:flex;align-items:center;gap:7px;padding:7px 13px;font-size:12px;
+  }
+  #palettes button[aria-pressed="true"]{background:var(--navy)}
+  /* muestrario: los mismos colores que lleva el modelo */
+  .sw{display:flex;gap:2px}
+  .sw i{width:7px;height:14px;border-radius:2px;background:var(--c)}
+
+  #anims{
+    position:fixed;left:50%;bottom:78px;transform:translateX(-50%);
+    display:flex;gap:8px;padding:7px;border-radius:999px;z-index:5;
+    flex-wrap:wrap;justify-content:center;max-width:min(92vw,560px);
+    background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #anims button[aria-pressed="true"]{background:var(--lime);color:#1c2436}
+
+  #anims-burger{display:none}
+  #anims-menu{
+    display:flex;flex-direction:column;gap:6px;
+    position:fixed;top:64px;right:26px;
+    padding:8px;border-radius:16px;z-index:5;min-width:160px;
+    background:rgba(255,255,255,.9);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #anims-menu button{text-align:left;border-radius:10px}
+  #anims-menu[hidden]{display:none}
+  #anims-menu button[aria-pressed="true"]{background:var(--lime);color:#1c2436}
+
+  #dev{
+    position:fixed;top:18px;left:26px;z-index:7;width:230px;
+    padding:12px;border-radius:14px;font-size:12px;
+    background:rgba(255,255,255,.88);backdrop-filter:blur(10px);
+    border:1px solid rgba(39,52,74,.10);
+    box-shadow:0 6px 22px rgba(39,52,74,.13);
+  }
+  #dev[hidden]{display:none}
+  #dev h2{margin:0 0 8px;font-size:13px}
+  #dev .dev-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  #dev select{font:inherit;padding:4px 6px;border-radius:8px;border:1px solid rgba(39,52,74,.2);flex:1}
+  #dev button{padding:6px 10px;font-size:12px;background:rgba(39,52,74,.07)}
+  #dev button[aria-pressed="true"]{background:var(--magenta);color:#fff}
+  #dev pre{
+    background:rgba(39,52,74,.06);padding:8px;border-radius:8px;
+    white-space:pre-wrap;word-break:break-all;margin:0 0 8px;
+    font:11px/1.4 ui-monospace,monospace;max-height:160px;overflow:auto;
+  }
+
+  #hint{
+    position:fixed;right:26px;bottom:32px;font-size:12px;opacity:.42;z-index:5;
+  }
+  #loader{
+    position:fixed;inset:0;display:grid;place-content:center;gap:14px;
+    justify-items:center;z-index:10;background:var(--paper);
+    transition:opacity .5s;font-size:13px;
+  }
+  #loader.done{opacity:0;pointer-events:none}
+  .bar{width:160px;height:4px;border-radius:2px;background:rgba(39,52,74,.12);overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--magenta);transition:width .2s}
+  #err{
+    position:fixed;inset:auto 20px 20px 20px;padding:14px 16px;border-radius:10px;
+    background:#3b1220;color:#ffd9e4;font:12px/1.5 ui-monospace,monospace;
+    white-space:pre-wrap;display:none;z-index:20;
+  }
+
+  @media (max-width:560px){
+    #hint{display:none}
+    header{padding:16px 18px}
+    /* en pantallas angostas (~320-340px) "low-poly - three.js" queda justo
+       debajo de la hamburguesa de poses (fixed, arriba a la derecha) y se
+       le monta encima: es puro adorno, se quita en vez de perseguir el hueco.
+       Ojo: los links de #links tambien llevan class="sub" (mismo estilo de
+       texto discreto) -por eso el selector va con el hijo directo de header,
+       si no tambien los apaga a ellos */
+    header > .sub{display:none}
+    /* el link de cómic sumó una segunda línea a #links: al ancho de un
+       celular ya cabía en la misma fila que "low-poly - three.js" y quedaba
+       tapado por la hamburguesa de poses. Se fuerza a su propia fila para
+       que quede siempre debajo, nunca al lado. */
+    #links{flex-basis:100%}
+    /* left+translateX(-50%) para centrar. width:max-content porque, fijo con
+       left+bottom+transform a la vez, Chrome encoge el shrink-to-fit por
+       debajo del ancho real y parte el texto de los botones en dos lineas.
+       max-width+flex-wrap quedan solo de red de seguridad para telefonos
+       diminutos: el ancho real ya se resuelve abajo (ver #palettes) sin que
+       nadie tenga que envolver a una segunda fila -eso rompía el apilado por
+       bottom en px fijos con #models y #panel, que asume una sola fila. */
+    #personajes{top:auto;bottom:218px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
+    #models{top:auto;bottom:174px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
+    #palettes{top:auto;bottom:130px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:94vw;flex-wrap:wrap;justify-content:center}
+    /* en movil los 6 botones de #anims no caben en una fila y quedan
+       ilegibles/imposibles de tocar: se reemplazan por una hamburguesa.
+       Va arriba, no abajo: ahi ya se amontonan #models/#palettes/#panel y
+       una barra mas la dejaba imposible de alcanzar con el pulgar. */
+    #anims{display:none}
+    #anims-burger{
+      display:flex;align-items:center;gap:6px;
+      position:fixed;top:18px;right:26px;
+      padding:9px 18px;border-radius:999px;z-index:5;
+      background:rgba(255,255,255,.72);backdrop-filter:blur(10px);
+      border:1px solid rgba(39,52,74,.10);
+      box-shadow:0 6px 22px rgba(39,52,74,.13);
+    }
+  }
+
+  /* "Paleta 1/2/3" completo mide ~354px de ancho -fijo, no depende del
+     viewport-, y ya no entra de sobra en los ~360-412px de la mayoría de
+     celulares (Android de gama media, iPhone SE/mini). En vez de partirlo en
+     dos filas -eso desalineaba el apilado con #models/#panel de arriba-, se
+     apaga el texto y queda solo el muestrario de color, igual que ya hacen
+     estos mismos botones en charla.html. El nombre sigue disponible por
+     title= al mantener pulsado o con lector de pantalla. */
+  @media (max-width:420px){
+    #palettes .pal-label{display:none}
+    #palettes button{padding:7px 10px}
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<header>
+  <h1>ED <span>3D Robot</span></h1>
+  <div class="sub">low-poly &middot; three.js</div>
+  <div id="links">
+    <a class="sub" id="link-inicio" href="./">← inicio</a>
+    <a class="sub" id="link-charla" href="./charla.html">hablar con K-7 →</a>
+  </div>
+</header>
+
+<div id="personajes">
+  <button data-personaje="k7" aria-pressed="true">K-7</button>
+  <button data-personaje="profesora" aria-pressed="false">Profesora</button>
+</div>
+
+<div id="models">
+  <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
+  <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
+  <button data-mesh="Modelo3" aria-pressed="false">Modelo 3</button>
+</div>
+
+<div id="palettes">
+  <button data-pal="uno" aria-pressed="true" title="Paleta 1">
+    <span class="sw"><i style="--c:#f48dbd"></i><i style="--c:#cae376"></i><i style="--c:#a0cbdf"></i><i style="--c:#fbe05d"></i></span>
+    <span class="pal-label">Paleta 1</span>
+  </button>
+  <button data-pal="dos" aria-pressed="false" title="Paleta 2">
+    <span class="sw"><i style="--c:#ff5bff"></i><i style="--c:#4ef707"></i><i style="--c:#35bfff"></i><i style="--c:#fce907"></i></span>
+    <span class="pal-label">Paleta 2</span>
+  </button>
+  <button data-pal="tres" aria-pressed="false" title="Paleta 3">
+    <span class="sw"><i style="--c:#d852db"></i><i style="--c:#4fc180"></i><i style="--c:#50aed8"></i><i style="--c:#ead34e"></i></span>
+    <span class="pal-label">Paleta 3</span>
+  </button>
+</div>
+
+<div id="anims">
+  <button data-anim="Idle"        aria-pressed="true">Reposo</button>
+  <button data-anim="K7_Pensando" aria-pressed="false">Pensando</button>
+  <button data-anim="K7_Saltito"  aria-pressed="false">Saltito</button>
+  <button data-anim="K7_Triste"   aria-pressed="false">Triste</button>
+  <button data-anim="K7_HighFive" aria-pressed="false">HighFive</button>
+  <button data-anim="K7_Caminando" aria-pressed="false">Caminando</button>
+</div>
+
+<!-- version movil de #anims: los mismos botones, en menu desplegable -->
+<button id="anims-burger" aria-expanded="false" aria-controls="anims-menu">☰ Pose</button>
+<div id="anims-menu" hidden>
+  <button data-anim="Idle"        aria-pressed="true">Reposo</button>
+  <button data-anim="K7_Pensando" aria-pressed="false">Pensando</button>
+  <button data-anim="K7_Saltito"  aria-pressed="false">Saltito</button>
+  <button data-anim="K7_Triste"   aria-pressed="false">Triste</button>
+  <button data-anim="K7_HighFive" aria-pressed="false">HighFive</button>
+  <button data-anim="K7_Caminando" aria-pressed="false">Caminando</button>
+</div>
+
+<!-- panel de ajuste manual: solo con ?dev=1 en la URL -->
+<div id="dev" hidden>
+  <h2>Ajuste de hueso</h2>
+  <div class="dev-row">
+    <select id="dev-bone"></select>
+  </div>
+  <div class="dev-row">
+    <button id="dev-mode-rotate" aria-pressed="true">Rotar</button>
+    <button id="dev-mode-translate" aria-pressed="false">Mover</button>
+    <button id="dev-reset">Reiniciar</button>
+  </div>
+  <pre id="dev-readout"></pre>
+  <div class="dev-row">
+    <button id="dev-copy">Copiar valores</button>
+  </div>
+</div>
+
+<div id="panel">
+  <button id="btn-play"  aria-pressed="true">Pausa</button>
+  <button id="btn-spin"  aria-pressed="true">Giro</button>
+  <button id="btn-bones" aria-pressed="false">Huesos</button>
+  <button id="btn-reset" aria-pressed="false">Reencuadrar</button>
+</div>
+
+<div id="hint">arrastra para orbitar &middot; rueda para zoom</div>
+
+<div id="loader"><div class="bar"><i></i></div><div id="loader-txt">cargando modelo…</div></div>
+<pre id="err"></pre>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }        from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls }     from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { K7, conectarBotones } from './character/k7.js';
+import { Profesora } from './character/profesora.js';
+
+// ?dev=1 activa el panel de ajuste manual de huesos (mover/rotar con gizmo)
+const DEV = new URLSearchParams(location.search).get('dev') === '1';
+
+const errBox = document.getElementById('err');
+const fail = (m) => { errBox.style.display = 'block'; errBox.textContent += m + '\n'; };
+window.addEventListener('error', e => fail(e.message));
+
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+// se recalculan al cargar cada modelo, a partir de su bounding box
+const HOME = new THREE.Vector3(2.4, 1.9, 3.6);
+const TARGET = new THREE.Vector3(0, 0.95, 0);
+const VIEW_DIR = new THREE.Vector3(2.4, 0.95, 3.6).normalize();
+camera.position.copy(HOME);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 1.6;
+controls.maxDistance = 12;
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.9;
+
+scene.add(new THREE.HemisphereLight(0xd8e4f5, 0x9aa6b8, 1.35));
+
+const key = new THREE.DirectionalLight(0xffffff, 2.1);
+key.position.set(1.8, 6.2, 2.2);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.radius = 3;
+key.shadow.bias = -0.0012;
+const s = key.shadow.camera;
+s.left = -1.8; s.right = 1.8; s.top = 2.6; s.bottom = -1.8; s.near = 0.5; s.far = 14;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.55);
+fill.position.set(-3.5, 1.6, 2.2);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.45);
+rim.position.set(0, 2.4, -4.0);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(3.4, 64).rotateX(-Math.PI / 2),
+  new THREE.ShadowMaterial({ opacity: 0.20 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+
+// K-7: modelos, boca/ojos intercambiables, paletas y las 6 poses viven en
+// character/k7.js, compartido con charla.html. Ver character/README.md.
+let skeletonHelper = null;
+const clock = new THREE.Clock();
+let paused = false;
+const animBtns = [];
+
+const syncAnimButtons = (name) => {
+  for (const b of animBtns) b.setAttribute('aria-pressed', b.dataset.anim === name);
+};
+
+const k7 = new K7({
+  THREE, GLTFLoader, base: './character',
+  onError: fail,
+  onAnimCambio: syncAnimButtons,   // tambien cubre el retorno solo a Idle
+});
+
+const profesora = new Profesora({
+  THREE, GLTFLoader, base: './character',
+  onError: fail,
+  onAnimCambio: syncAnimButtons,
+});
+
+// Botones de pose por personaje: K-7 tiene sus 6, la Profesora sus 5 gestos
+// (ver character/profesora.js). #anims/#anims-menu se rellenan de nuevo cada
+// vez que se cambia de personaje, en vez de llevar el doble de botones fijos.
+const PERSONAJES = {
+  k7: {
+    instancia: k7,
+    anims: [
+      ['Idle', 'Reposo'], ['K7_Pensando', 'Pensando'], ['K7_Saltito', 'Saltito'],
+      ['K7_Triste', 'Triste'], ['K7_HighFive', 'HighFive'], ['K7_Caminando', 'Caminando'],
+    ],
+  },
+  profesora: {
+    instancia: profesora,
+    anims: [
+      ['Profesora_Idle', 'Reposo'], ['Profesora_Escribiendo', 'Escribiendo'],
+      ['Profesora_Eureka', 'Eureka'], ['Profesora_Mirando', 'Mirando'],
+      ['Profesora_Caminando', 'Caminando'],
+    ],
+  },
+};
+let personajeActivo = 'k7';
+const activo = () => PERSONAJES[personajeActivo].instancia;
+
+// ---------------------------------------------------------- modo ?dev=1 ----
+// Gizmo para mover/rotar un hueso a mano y leer los numeros resultantes -el
+// mismo tipo de panel que ya se uso antes para calibrar la boca a ojo-, esta
+// vez para retocar poses del rig sin pasar por Blender.
+let transformControls = null;
+let devBone = null;
+let devBaseline = null;
+
+function setupDevMode() {
+  if (!DEV || !k7.model || !skeletonHelper) return;
+  document.getElementById('dev').hidden = false;
+
+  // congela en la pose que se va a retocar, en su instante base (frame 0,
+  // sin la respiracion del idle superpuesta)
+  const target = k7.actions['K7_Pensando'] ? 'K7_Pensando' : 'Idle';
+  for (const name in k7.actions) k7.actions[name].setEffectiveWeight(name === target ? 1 : 0);
+  k7._activeAction = k7.actions[target];
+  if (k7._activeAction) { k7._activeAction.time = 0; k7.mixer.update(0); }
+  paused = true;
+  k7.aplicarGesto(target);
+  syncAnimButtons(target);
+  controls.autoRotate = false;
+  if (skeletonHelper) skeletonHelper.visible = true;
+  btnBones?.setAttribute('aria-pressed', 'true');
+
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.setSpace('local');
+  transformControls.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  transformControls.addEventListener('objectChange', updateDevReadout);
+  scene.add(transformControls.getHelper());
+
+  const boneSelect = document.getElementById('dev-bone');
+  const bones = skeletonHelper.bones.slice().sort((a, b) => a.name.localeCompare(b.name));
+  for (const b of bones) {
+    const opt = document.createElement('option');
+    opt.value = b.name;
+    opt.textContent = b.name;
+    boneSelect.appendChild(opt);
+  }
+  const startBone = bones.find((b) => b.name === 'upperarm_R') ? 'upperarm_R' : bones[0]?.name;
+  boneSelect.value = startBone;
+  selectDevBone(startBone);
+  boneSelect.addEventListener('change', () => selectDevBone(boneSelect.value));
+
+  document.getElementById('dev-mode-rotate').addEventListener('click', () => setDevGizmoMode('rotate'));
+  document.getElementById('dev-mode-translate').addEventListener('click', () => setDevGizmoMode('translate'));
+  document.getElementById('dev-copy').addEventListener('click', copyDevValues);
+  document.getElementById('dev-reset').addEventListener('click', () => {
+    if (!devBone || !devBaseline) return;
+    devBone.quaternion.copy(devBaseline.quaternion);
+    devBone.position.copy(devBaseline.position);
+    updateDevReadout();
+  });
+}
+
+function selectDevBone(name) {
+  devBone = skeletonHelper.bones.find((b) => b.name === name);
+  if (!devBone) return;
+  devBaseline = { quaternion: devBone.quaternion.clone(), position: devBone.position.clone() };
+  transformControls.attach(devBone);
+  updateDevReadout();
+}
+
+function setDevGizmoMode(mode) {
+  transformControls.setMode(mode);
+  document.getElementById('dev-mode-rotate').setAttribute('aria-pressed', String(mode === 'rotate'));
+  document.getElementById('dev-mode-translate').setAttribute('aria-pressed', String(mode === 'translate'));
+}
+
+function updateDevReadout() {
+  if (!devBone) return;
+  const q = devBone.quaternion;
+  const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+  const toDeg = (r) => (r * 180 / Math.PI).toFixed(1);
+  document.getElementById('dev-readout').textContent =
+    `hueso: ${devBone.name}\n` +
+    `quat (w,x,y,z):\n  ${q.w.toFixed(4)}, ${q.x.toFixed(4)}, ${q.y.toFixed(4)}, ${q.z.toFixed(4)}\n` +
+    `euler XYZ (grados):\n  ${toDeg(e.x)}, ${toDeg(e.y)}, ${toDeg(e.z)}\n` +
+    `posicion local:\n  ${devBone.position.x.toFixed(4)}, ${devBone.position.y.toFixed(4)}, ${devBone.position.z.toFixed(4)}`;
+}
+
+function copyDevValues() {
+  if (!devBone) return;
+  const q = devBone.quaternion;
+  const p = devBone.position;
+  const text = JSON.stringify({
+    bone: devBone.name,
+    quaternion_wxyz: [q.w, q.x, q.y, q.z],
+    position: [p.x, p.y, p.z],
+  }, null, 2);
+  const btn = document.getElementById('dev-copy');
+  const old = btn.textContent;
+  navigator.clipboard?.writeText(text)
+    .then(() => { btn.textContent = 'Copiado!'; setTimeout(() => { btn.textContent = old; }, 1200); })
+    .catch(() => { btn.textContent = 'No se pudo copiar'; setTimeout(() => { btn.textContent = old; }, 1200); });
+}
+
+const loaderEl = document.getElementById('loader');
+const loaderTxt = document.getElementById('loader-txt');
+const barEl = document.querySelector('.bar i');
+const btnPlay  = document.getElementById('btn-play');
+const btnBones = document.getElementById('btn-bones');
+const modelBtns = [...document.querySelectorAll('#models button')];
+
+function showMesh(name) {
+  k7.mostrarModelo(name);
+  for (const b of modelBtns) b.setAttribute('aria-pressed', b.dataset.mesh === name);
+}
+
+// Las tres paletas valen para los tres modelos: cada material tiene un rol y
+// cada paleta da un color por rol (ver character/paleta.js). La Profesora se
+// suma solo con la cara: sus ojos y su boca comparten los materiales de K-7,
+// asi que los dos los tienen del mismo color en las tres paletas.
+conectarBotones('#palettes button', (id) => {
+  k7.aplicarPaletaPersonaje(id);
+  profesora.aplicarPaletaCara(id);
+});
+
+// deja la camara a una distancia proporcional al tamano del modelo
+function frame(obj) {
+  const box = new THREE.Box3().setFromObject(obj);
+  box.getCenter(TARGET);
+  const size = box.getSize(new THREE.Vector3());
+  const radius = Math.max(size.x, size.y, size.z) * 0.5;
+  const dist = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.7;
+
+  HOME.copy(VIEW_DIR).multiplyScalar(dist).add(TARGET);
+  controls.minDistance = dist * 0.35;
+  controls.maxDistance = dist * 3;
+  resetView();
+}
+
+function resetView() {
+  camera.position.copy(HOME);
+  controls.target.copy(TARGET);
+  controls.update();
+}
+
+const modelsEl = document.getElementById('models');
+const animsEl = document.getElementById('anims');
+const animMenuEl = document.getElementById('anims-menu');
+const animBurger = document.getElementById('anims-burger');
+
+// #anims/#anims-menu se reconstruyen con los botones del personaje activo
+// (ver PERSONAJES mas arriba) en vez de llevar el doble fijo en el HTML.
+function renderAnimButtons(id) {
+  const html = PERSONAJES[id].anims
+    .map(([anim, label], i) => `<button data-anim="${anim}" aria-pressed="${i === 0}">${label}</button>`)
+    .join('');
+  animsEl.innerHTML = html;
+  animMenuEl.innerHTML = html;
+  animBtns.length = 0;
+  animBtns.push(...document.querySelectorAll('#anims button, #anims-menu button'));
+  for (const b of animBtns) b.addEventListener('click', () => {
+    activo().reproducir(b.dataset.anim);
+    animMenuEl.hidden = true;
+    animBurger.setAttribute('aria-expanded', 'false');
+  });
+}
+
+// K-7 tiene 3 modelos propios y la Profesora uno solo, así que ese panel se
+// apaga mientras ella esté activa. El de paletas se queda: aunque su ropa no
+// cambie, sus ojos y su boca sí siguen la paleta (ver aplicarPaletaCara).
+function mostrarPersonaje(id) {
+  if (!PERSONAJES[id].instancia.model) return;
+  personajeActivo = id;
+  k7.model.visible = (id === 'k7');
+  profesora.model.visible = (id === 'profesora');
+  if (skeletonHelper) skeletonHelper.visible = (id === 'k7') && btnBones.getAttribute('aria-pressed') === 'true';
+  modelsEl.style.display = id === 'k7' ? '' : 'none';
+  for (const b of personajeBtns) b.setAttribute('aria-pressed', String(b.dataset.personaje === id));
+  renderAnimButtons(id);
+  frame(activo().model);
+}
+
+const personajeBtns = [...document.querySelectorAll('#personajes button')];
+for (const b of personajeBtns) b.addEventListener('click', () => mostrarPersonaje(b.dataset.personaje));
+
+await Promise.all([
+  k7.cargar({ onProgress: (frac) => { barEl.style.width = (frac * 45) + '%'; } }),
+  profesora.cargar({ onProgress: (frac) => { barEl.style.width = (45 + frac * 45) + '%'; } }),
+]);
+
+if (!k7.model || !profesora.model) {
+  loaderTxt.textContent = 'no se pudo cargar el modelo — ¿estás sirviendo la carpeta por HTTP?';
+} else {
+  k7.agregarA(scene);
+  profesora.agregarA(scene);
+  profesora.model.visible = false;
+  profesora.aplicarPaletaCara(k7.paleta);   // arranca con la misma que K-7
+
+  skeletonHelper = new THREE.SkeletonHelper(k7.model);
+  skeletonHelper.visible = false;
+  skeletonHelper.material.linewidth = 2;
+  scene.add(skeletonHelper);
+
+  // encuadra con las tres mallas de K-7 visibles: comparten proporciones,
+  // asi que el encuadre vale para todas y no hay que recolocar la camara al
+  // cambiar de modelo
+  frame(k7.model);
+  showMesh(k7.modelo);
+  renderAnimButtons('k7');
+  setupDevMode();
+}
+
+loaderEl.classList.add('done');
+
+for (const b of modelBtns) b.addEventListener('click', () => showMesh(b.dataset.mesh));
+
+animBurger.addEventListener('click', () => {
+  const abrir = animMenuEl.hidden;
+  animMenuEl.hidden = !abrir;
+  animBurger.setAttribute('aria-expanded', String(abrir));
+});
+
+const toggle = (btn, fn) => btn.addEventListener('click', () => {
+  const on = btn.getAttribute('aria-pressed') !== 'true';
+  btn.setAttribute('aria-pressed', on);
+  fn(on, btn);
+});
+
+toggle(btnPlay, (on, b) => {
+  b.textContent = on ? 'Pausa' : 'Reanudar';
+  paused = !on;
+});
+toggle(document.getElementById('btn-spin'), (on) => { controls.autoRotate = on; });
+toggle(btnBones, (on) => {
+  // el esqueleto es el de K-7 (la Profesora no tiene helper propio): solo
+  // se ve si ademas es el personaje activo
+  if (skeletonHelper) skeletonHelper.visible = on && personajeActivo === 'k7';
+});
+document.getElementById('btn-reset').addEventListener('click', resetView);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta();
+  if (!paused) activo().actualizar(dt);
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

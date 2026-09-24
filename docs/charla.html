@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>K-7 &middot; Una charla</title>
+<link rel="icon" href="img/logo-icono.svg" type="image/svg+xml">
 <style>
   :root{
     --ink:#5c4a3a;            /* texto de la caja, marrón cálido */
@@ -293,7 +294,7 @@
 </div>
 
 <div id="avatars">
-  <a id="back" href="./index.html">← visor 3D</a>
+  <a id="back" href="./">← inicio</a>
   <button data-mesh="Modelo1" aria-pressed="true">Modelo 1</button>
   <button data-mesh="Modelo2" aria-pressed="false">Modelo 2</button>
   <button data-mesh="Modelo3" aria-pressed="false">Modelo 3</button>
@@ -410,7 +411,7 @@ scene.add(ground);
 
 /* ------------------------------------------------------- K-7 habla ------ */
 /* Modelos, boca/ojos intercambiables y paletas viven en character/k7.js,
-   compartido con index.html. Aqui solo se usa k7.hablar()/k7.bocaEnReposo
+   compartido con visor.html. Aqui solo se usa k7.hablar()/k7.bocaEnReposo
    para el lipsync y el cabeceo al hablar; ver character/README.md. */
 
 const k7 = new K7({
